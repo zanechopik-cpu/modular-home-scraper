@@ -6,916 +6,525 @@
   <title>Modular Home Builder Finder</title>
   <style>
     :root {
-      --bg-primary: #f7f7f8;
-      --bg-secondary: #ffffff;
-      --bg-user-msg: #e3f2fd;
-      --bg-bot-msg: #f0f0f0;
+      --bg: #f7f7f8;
+      --bg-card: #ffffff;
       --bg-input: #ffffff;
-      --text-primary: #1a1a2e;
-      --text-secondary: #555;
+      --text: #1a1a2e;
+      --text-dim: #666;
       --border: #e0e0e0;
       --accent: #2563eb;
       --accent-hover: #1d4ed8;
-      --success: #16a34a;
-      --warning: #ea580c;
-      --error: #dc2626;
-      --shadow: rgba(0,0,0,0.08);
-      --radius: 12px;
+      --green: #16a34a;
     }
     .dark {
-      --bg-primary: #0f0f1a;
-      --bg-secondary: #1a1a2e;
-      --bg-user-msg: #1e3a5f;
-      --bg-bot-msg: #252540;
+      --bg: #0f0f1a;
+      --bg-card: #1a1a2e;
       --bg-input: #1a1a2e;
-      --text-primary: #e8e8f0;
-      --text-secondary: #a0a0b8;
+      --text: #e8e8f0;
+      --text-dim: #a0a0b8;
       --border: #2d2d4a;
-      --shadow: rgba(0,0,0,0.3);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       transition: background 0.3s, color 0.3s;
     }
 
-    /* Header */
-    .header {
-      background: var(--bg-secondary);
+    header {
+      background: var(--bg-card);
       border-bottom: 1px solid var(--border);
       padding: 12px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-shrink: 0;
     }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .header h1 {
+    header h1 {
       font-size: 18px;
-      font-weight: 700;
       background: linear-gradient(135deg, var(--accent), #7c3aed);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .header-logo {
-      font-size: 24px;
-    }
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .btn-icon {
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .btn-sm {
       background: none;
       border: 1px solid var(--border);
-      color: var(--text-secondary);
-      cursor: pointer;
-      padding: 6px 10px;
+      color: var(--text-dim);
+      padding: 6px 12px;
       border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      cursor: pointer;
+      font-size: 13px;
     }
-    .btn-icon:hover {
-      background: var(--bg-primary);
-      color: var(--text-primary);
-    }
+    .btn-sm:hover { color: var(--text); background: var(--bg); }
 
-    /* Chat area */
-    .chat-container {
+    main {
       flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      scroll-behavior: smooth;
-    }
-    .chat-messages {
-      max-width: 800px;
+      max-width: 900px;
+      width: 100%;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      padding: 24px 20px;
     }
-    .message {
-      display: flex;
-      flex-direction: column;
-      max-width: 85%;
-      animation: fadeIn 0.3s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .message.user {
-      align-self: flex-end;
-    }
-    .message.bot {
-      align-self: flex-start;
-    }
-    .message-bubble {
-      padding: 12px 16px;
-      border-radius: var(--radius);
-      line-height: 1.5;
-      font-size: 14px;
-      word-wrap: break-word;
-    }
-    .message.user .message-bubble {
-      background: var(--bg-user-msg);
-      border-bottom-right-radius: 4px;
-    }
-    .message.bot .message-bubble {
-      background: var(--bg-bot-msg);
-      border-bottom-left-radius: 4px;
-    }
-    .message-time {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-      padding: 0 4px;
-    }
-    .message.user .message-time { text-align: right; }
 
-    /* Welcome message */
-    .welcome {
-      text-align: center;
-      padding: 40px 20px;
-      max-width: 600px;
-      margin: 0 auto;
+    /* Search box */
+    .search-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
     }
-    .welcome h2 {
-      font-size: 24px;
+    .search-box label {
+      display: block;
+      font-weight: 600;
       margin-bottom: 8px;
+      font-size: 15px;
     }
-    .welcome p {
-      color: var(--text-secondary);
-      margin-bottom: 24px;
-    }
-    .example-queries {
+    .search-row {
       display: flex;
-      flex-direction: column;
       gap: 8px;
     }
-    .example-query {
-      background: var(--bg-secondary);
+    .search-row input {
+      flex: 1;
+      padding: 10px 14px;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
-      cursor: pointer;
-      text-align: left;
-      font-size: 14px;
-      color: var(--text-primary);
-      transition: all 0.2s;
-    }
-    .example-query:hover {
-      border-color: var(--accent);
-      background: var(--bg-user-msg);
-    }
-
-    /* Progress bar */
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      margin: 8px 0;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), #7c3aed);
-      border-radius: 3px;
-      transition: width 0.3s;
-    }
-
-    /* Results table */
-    .results-table-wrap {
-      overflow-x: auto;
-      margin: 12px 0;
       border-radius: 8px;
-      border: 1px solid var(--border);
+      font-size: 14px;
+      background: var(--bg-input);
+      color: var(--text);
+      outline: none;
     }
-    .results-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      min-width: 600px;
-    }
-    .results-table th {
+    .search-row input:focus { border-color: var(--accent); }
+    .search-row button {
+      padding: 10px 20px;
       background: var(--accent);
       color: white;
-      padding: 10px 12px;
-      text-align: left;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
     }
-    .results-table th:hover {
-      background: var(--accent-hover);
-    }
-    .results-table td {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    .results-table tr:nth-child(even) {
-      background: var(--bg-primary);
-    }
-    .results-table tr:hover {
-      background: var(--bg-user-msg);
-    }
-    .verified { color: var(--success); font-weight: 600; }
-    .not-found { color: var(--text-secondary); font-style: italic; }
-    .specialty-tag {
-      display: inline-block;
-      background: var(--accent);
-      color: white;
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin: 1px;
-    }
-
-    /* Action buttons */
-    .action-buttons {
+    .search-row button:hover { background: var(--accent-hover); }
+    .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .examples {
+      margin-top: 12px;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin: 12px 0;
-    }
-    .action-btn {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
       gap: 6px;
     }
-    .action-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .action-btn.primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    .action-btn.primary:hover {
-      background: var(--accent-hover);
-    }
-
-    /* Summary card */
-    .summary-card {
-      background: var(--bg-secondary);
+    .examples button {
+      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin: 8px 0;
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
     }
-    .summary-card h3 {
-      color: var(--success);
-      margin-bottom: 8px;
-      font-size: 16px;
-    }
-    .summary-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .stat {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-    }
-    .stat-label { color: var(--text-secondary); }
-    .stat-value { font-weight: 600; }
+    .examples button:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* Typing indicator */
-    .typing-indicator {
-      display: flex;
-      gap: 4px;
-      padding: 8px 0;
-    }
-    .typing-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--text-secondary);
-      border-radius: 50%;
-      animation: bounce 1.4s infinite ease-in-out;
-    }
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-      40% { transform: scale(1); opacity: 1; }
-    }
-
-    /* Input area */
-    .input-area {
-      border-top: 1px solid var(--border);
+    /* Status area */
+    .status-area {
+      display: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       padding: 16px 20px;
-      background: var(--bg-secondary);
-      flex-shrink: 0;
+      margin-bottom: 20px;
     }
-    .input-wrap {
-      max-width: 800px;
-      margin: 0 auto;
+    .status-area.show { display: block; }
+    .status-line {
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 3px 0;
+    }
+    .status-line.search { color: var(--accent); }
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Results */
+    .results-area {
+      display: none;
+    }
+    .results-area.show { display: block; }
+    .results-header {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
       gap: 8px;
-      align-items: flex-end;
     }
-    .input-wrap textarea {
-      flex: 1;
-      resize: none;
+    .results-header h2 { font-size: 18px; }
+    .export-buttons { display: flex; gap: 6px; }
+
+    .results-content {
+      background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px 16px;
+      padding: 20px;
+      overflow-x: auto;
       font-size: 14px;
-      font-family: inherit;
-      background: var(--bg-input);
-      color: var(--text-primary);
-      outline: none;
-      min-height: 44px;
-      max-height: 120px;
-      transition: border-color 0.2s;
+      line-height: 1.6;
     }
-    .input-wrap textarea:focus {
-      border-color: var(--accent);
+    .results-content table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
     }
-    .send-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      border: none;
+    .results-content th {
       background: var(--accent);
       color: white;
-      cursor: pointer;
-      font-size: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s;
-      flex-shrink: 0;
-    }
-    .send-btn:hover { background: var(--accent-hover); }
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .input-hint {
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 6px;
-      max-width: 800px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    /* Help modal */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-overlay.show { display: flex; }
-    .modal {
-      background: var(--bg-secondary);
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    .modal h2 { margin-bottom: 16px; }
-    .modal h3 { margin: 16px 0 8px; font-size: 14px; color: var(--accent); }
-    .modal p, .modal li { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
-    .modal ul { padding-left: 20px; }
-    .modal-close {
-      float: right;
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: var(--text-secondary);
-    }
-
-    /* Filter dropdown */
-    .filter-wrap {
-      position: relative;
-      display: inline-block;
-    }
-    .filter-dropdown {
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px;
-      display: none;
-      min-width: 200px;
-      box-shadow: 0 4px 12px var(--shadow);
-      z-index: 10;
-    }
-    .filter-dropdown.show { display: block; }
-    .filter-option {
-      padding: 6px 10px;
-      cursor: pointer;
-      border-radius: 4px;
+      padding: 8px 12px;
+      text-align: left;
       font-size: 13px;
+      white-space: nowrap;
     }
-    .filter-option:hover { background: var(--bg-primary); }
-
-    /* View toggle for full table */
-    .full-table-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
+    .results-content td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: top;
     }
-    .full-table-overlay.show { display: flex; }
-    .full-table-modal {
-      background: var(--bg-secondary);
-      border-radius: 16px;
-      padding: 24px;
-      width: 95%;
-      max-width: 1200px;
-      max-height: 85vh;
-      overflow: auto;
+    .results-content tr:nth-child(even) { background: var(--bg); }
+    .results-content a { color: var(--accent); }
+    .results-content pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
-    /* Responsive */
+    /* Markdown rendering */
+    .results-content h1, .results-content h2, .results-content h3 {
+      margin: 16px 0 8px;
+    }
+    .results-content p { margin: 8px 0; }
+    .results-content ul, .results-content ol { padding-left: 20px; margin: 8px 0; }
+
     @media (max-width: 640px) {
-      .header h1 { font-size: 15px; }
-      .message { max-width: 95%; }
-      .summary-stats { grid-template-columns: 1fr; }
-      .action-buttons { flex-direction: column; }
+      .search-row { flex-direction: column; }
+      .examples { flex-direction: column; }
     }
   </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
+<header>
   <div class="header-left">
-    <span class="header-logo">&#127968;</span>
+    <span style="font-size:24px">&#127968;</span>
     <h1>Modular Home Builder Finder</h1>
   </div>
-  <div class="header-actions">
-    <button class="btn-icon" onclick="showHelp()" title="Help">&#63; Help</button>
-    <button class="btn-icon" onclick="clearChat()" title="Clear chat">&#128465; Clear</button>
-    <button class="btn-icon" id="darkToggle" onclick="toggleDark()" title="Toggle dark mode">&#9790; Dark</button>
-  </div>
-</div>
+  <button class="btn-sm" id="darkToggle" onclick="toggleDark()">Dark</button>
+</header>
 
-<!-- Chat -->
-<div class="chat-container" id="chatContainer">
-  <div class="chat-messages" id="chatMessages">
-    <!-- Welcome -->
-    <div class="welcome" id="welcomeScreen">
-      <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Ask me about modular, manufactured, prefab, or tiny home builders in any city. I'll search the web and scrape company websites for verified contact information.</p>
-      <div class="example-queries">
-        <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Show me manufactured home companies in Tulsa, Oklahoma</button>
-        <button class="example-query" onclick="sendExample(this)">Any prefab home builders in Austin, Texas?</button>
-        <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
-      </div>
+<main>
+  <div class="search-box">
+    <label>Search for modular home builders by location</label>
+    <div class="search-row">
+      <input type="text" id="queryInput" placeholder="e.g. Denver, Colorado" onkeydown="if(event.key==='Enter')doSearch()">
+      <button id="searchBtn" onclick="doSearch()">Search</button>
+    </div>
+    <div class="examples">
+      <button onclick="setQuery('Denver, Colorado')">Denver, CO</button>
+      <button onclick="setQuery('Austin, Texas')">Austin, TX</button>
+      <button onclick="setQuery('Tulsa, Oklahoma')">Tulsa, OK</button>
+      <button onclick="setQuery('Portland, Oregon')">Portland, OR</button>
+      <button onclick="setQuery('Nashville, Tennessee')">Nashville, TN</button>
     </div>
   </div>
-</div>
 
-<!-- Input -->
-<div class="input-area">
-  <div class="input-wrap">
-    <textarea id="userInput" rows="1" placeholder="Ask me about modular home builders..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
-    <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
-  </div>
-  <div class="input-hint">Press Enter to send. Searches take 5-7 minutes per city. Emails are only extracted from company websites.</div>
-</div>
+  <div class="status-area" id="statusArea"></div>
 
-<!-- Help Modal -->
-<div class="modal-overlay" id="helpModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeHelp()">&#10005;</button>
-    <h2>&#127968; How to Use</h2>
-    <h3>Example Questions</h3>
-    <ul>
-      <li>"Find modular home builders in Oklahoma City, Oklahoma"</li>
-      <li>"Show me manufactured homes in Denver, Colorado"</li>
-      <li>"Any prefab builders in Vancouver, British Columbia?"</li>
-      <li>"Search for tiny home builders in Austin, TX"</li>
-    </ul>
-    <h3>What I Do</h3>
-    <p>I search the web for modular/manufactured/prefab home builders in your specified location, then visit each company's website to extract verified contact information.</p>
-    <h3>Important Notes</h3>
-    <ul>
-      <li>Searches usually take 5-7 minutes per city</li>
-      <li>Email addresses are <strong>only</strong> extracted from company websites - never guessed</li>
-      <li>Results can be exported as CSV or JSON</li>
-      <li>Results are most accurate for major US and Canadian cities</li>
-    </ul>
-    <h3>Setup</h3>
-    <p>This app requires an ANTHROPIC_API_KEY environment variable. Get yours at <strong>console.anthropic.com</strong>.</p>
+  <div class="results-area" id="resultsArea">
+    <div class="results-header">
+      <h2 id="resultsTitle">Results</h2>
+      <div class="export-buttons">
+        <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
+        <button class="btn-sm" onclick="exportJSON()">Export JSON</button>
+      </div>
+    </div>
+    <div class="results-content" id="resultsContent"></div>
   </div>
-</div>
-
-<!-- Full Table Modal -->
-<div class="full-table-overlay" id="fullTableModal">
-  <div class="full-table-modal">
-    <button class="modal-close" onclick="closeFullTable()" style="float:right; font-size:20px; background:none; border:none; cursor:pointer; color:var(--text-secondary)">&#10005;</button>
-    <h2 style="margin-bottom:16px">All Results</h2>
-    <div id="fullTableContent"></div>
-  </div>
-</div>
+</main>
 
 <script>
-  // State
-  let currentResults = null;
-  let isSearching = false;
-  let sortCol = null;
-  let sortDir = 1;
-
   // Dark mode
   function toggleDark() {
-    document.body.classList.toggle("dark");
-    const isDark = document.body.classList.contains("dark");
-    document.getElementById("darkToggle").innerHTML = isDark ? "&#9788; Light" : "&#9790; Dark";
-    localStorage.setItem("darkMode", isDark);
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    document.getElementById('darkToggle').textContent = isDark ? 'Light' : 'Dark';
+    localStorage.setItem('dark', isDark);
   }
-  if (localStorage.getItem("darkMode") === "true") toggleDark();
+  if (localStorage.getItem('dark') === 'true') toggleDark();
 
-  // Auto-resize textarea
-  function autoResize(el) {
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-  }
+  let isSearching = false;
+  let rawText = '';
 
-  function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  function setQuery(q) {
+    document.getElementById('queryInput').value = q;
+    doSearch();
   }
 
-  function sendExample(btn) {
-    document.getElementById("userInput").value = btn.textContent;
-    sendMessage();
-  }
-
-  function scrollToBottom() {
-    const c = document.getElementById("chatContainer");
-    c.scrollTop = c.scrollHeight;
-  }
-
-  function timeNow() {
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  function addMessage(text, type, html) {
-    const welcome = document.getElementById("welcomeScreen");
-    if (welcome) welcome.remove();
-
-    const div = document.createElement("div");
-    div.className = `message ${type}`;
-    div.innerHTML = `<div class="message-bubble">${html ? text : escapeHtml(text)}</div><div class="message-time">${timeNow()}</div>`;
-    document.getElementById("chatMessages").appendChild(div);
-    scrollToBottom();
-    return div;
-  }
-
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
-  function addTypingIndicator() {
-    const div = document.createElement("div");
-    div.className = "message bot";
-    div.id = "typingIndicator";
-    div.innerHTML = `<div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
-    document.getElementById("chatMessages").appendChild(div);
-    scrollToBottom();
-  }
-
-  function removeTypingIndicator() {
-    const el = document.getElementById("typingIndicator");
-    if (el) el.remove();
-  }
-
-  function updateBotMessage(div, html) {
-    div.querySelector(".message-bubble").innerHTML = html;
-    scrollToBottom();
-  }
-
-  // Clear chat
-  function clearChat() {
-    const msgs = document.getElementById("chatMessages");
-    msgs.innerHTML = `<div class="welcome" id="welcomeScreen">
-      <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Ask me about modular, manufactured, prefab, or tiny home builders in any city.</p>
-      <div class="example-queries">
-        <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Show me manufactured home companies in Tulsa, Oklahoma</button>
-        <button class="example-query" onclick="sendExample(this)">Any prefab home builders in Austin, Texas?</button>
-        <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
-      </div>
-    </div>`;
-    currentResults = null;
-  }
-
-  // Help
-  function showHelp() { document.getElementById("helpModal").classList.add("show"); }
-  function closeHelp() { document.getElementById("helpModal").classList.remove("show"); }
-  document.getElementById("helpModal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("helpModal")) closeHelp();
-  });
-
-  // Full table
-  function showFullTable() { document.getElementById("fullTableModal").classList.add("show"); renderFullTable(); }
-  function closeFullTable() { document.getElementById("fullTableModal").classList.remove("show"); }
-  document.getElementById("fullTableModal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("fullTableModal")) closeFullTable();
-  });
-
-  function renderFullTable() {
-    if (!currentResults) return;
-    document.getElementById("fullTableContent").innerHTML = buildTable(currentResults.results, currentResults.results.length);
-  }
-
-  // Build table HTML
-  function buildTable(results, limit) {
-    const rows = results.slice(0, limit);
-    let html = `<div class="results-table-wrap"><table class="results-table">
-      <thead><tr>
-        <th onclick="sortTable(0)">#</th>
-        <th onclick="sortTable(1)">Company</th>
-        <th onclick="sortTable(2)">Email</th>
-        <th onclick="sortTable(3)">Phone</th>
-        <th onclick="sortTable(4)">Specialties</th>
-      </tr></thead><tbody>`;
-    rows.forEach((r, i) => {
-      const emailCell = r.email
-        ? `<span class="verified">&#10003;</span> ${escapeHtml(r.email)}`
-        : `<span class="not-found">Not found</span>`;
-      const phoneCell = r.phone
-        ? escapeHtml(r.phone)
-        : `<span class="not-found">Not found</span>`;
-      const specTags = (r.specialties || []).map(s => `<span class="specialty-tag">${escapeHtml(s)}</span>`).join(" ");
-      const nameLink = r.website ? `<a href="${escapeHtml(r.website)}" target="_blank" rel="noopener" style="color:var(--accent)">${escapeHtml(r.name)}</a>` : escapeHtml(r.name);
-      html += `<tr>
-        <td>${i + 1}</td>
-        <td>${nameLink}</td>
-        <td>${emailCell}</td>
-        <td>${phoneCell}</td>
-        <td>${specTags || '<span class="not-found">-</span>'}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-    return html;
-  }
-
-  function sortTable(col) {
-    if (!currentResults) return;
-    if (sortCol === col) sortDir *= -1;
-    else { sortCol = col; sortDir = 1; }
-    const keys = ["name", "name", "email", "phone", "specialties"];
-    currentResults.results.sort((a, b) => {
-      const av = (col === 4 ? (a[keys[col]]||[]).length : (a[keys[col]]||"")) || "";
-      const bv = (col === 4 ? (b[keys[col]]||[]).length : (b[keys[col]]||"")) || "";
-      if (av < bv) return -1 * sortDir;
-      if (av > bv) return 1 * sortDir;
-      return 0;
-    });
-  }
-
-  // Export
-  function downloadCSV() {
-    if (!currentResults) return;
-    const header = "Company Name,Website URL,General Email,Sales Email,Phone,Specialties,Source URL\n";
-    const rows = currentResults.results.map(r =>
-      [r.name, r.website, r.email || "", r.salesEmail || "", r.phone || "", (r.specialties || []).join("; "), r.sourceUrl || ""]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(",")
-    ).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    downloadBlob(blob, `${currentResults.city}_${currentResults.state}_modular_homes_${dateStr()}.csv`);
-    addMessage(`Downloaded CSV with ${currentResults.results.length} companies.`, "bot", true);
-  }
-
-  function downloadJSON() {
-    if (!currentResults) return;
-    const blob = new Blob([JSON.stringify(currentResults.results, null, 2)], { type: "application/json" });
-    downloadBlob(blob, `${currentResults.city}_${currentResults.state}_modular_homes_${dateStr()}.json`);
-    addMessage(`Downloaded JSON with ${currentResults.results.length} companies.`, "bot", true);
-  }
-
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename.toLowerCase().replace(/\s+/g, "_");
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function dateStr() {
-    const d = new Date();
-    return `${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}_${String(d.getDate()).padStart(2, "0")}`;
-  }
-
-  // Filter by specialty
-  function filterBySpecialty(specialty) {
-    if (!currentResults) return;
-    const filtered = specialty === "all"
-      ? currentResults.results
-      : currentResults.results.filter(r => (r.specialties || []).includes(specialty));
-    const html = `<strong>Filtered: ${specialty === "all" ? "All Companies" : specialty}</strong> (${filtered.length} results)<br><br>` +
-      buildTable(filtered, filtered.length);
-    addMessage(html, "bot", true);
-  }
-
-  // Send message
-  async function sendMessage() {
-    const input = document.getElementById("userInput");
-    const text = input.value.trim();
-    if (!text || isSearching) return;
-
-    input.value = "";
-    autoResize(input);
-    addMessage(text, "user");
+  async function doSearch() {
+    const input = document.getElementById('queryInput');
+    const query = input.value.trim();
+    if (!query || isSearching) return;
 
     isSearching = true;
-    document.getElementById("sendBtn").disabled = true;
-    addTypingIndicator();
+    rawText = '';
+    document.getElementById('searchBtn').disabled = true;
 
-    let progressDiv = null;
+    const statusArea = document.getElementById('statusArea');
+    const resultsArea = document.getElementById('resultsArea');
+    const resultsContent = document.getElementById('resultsContent');
+
+    statusArea.className = 'status-area show';
+    statusArea.innerHTML = '<div class="status-line"><span class="spinner"></span> Starting search...</div>';
+    resultsArea.className = 'results-area';
+    resultsContent.innerHTML = '';
 
     try {
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
       });
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          let data;
-          try {
-            data = JSON.parse(line.slice(6));
-          } catch { continue; }
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          if (payload === '[DONE]') continue;
 
-          removeTypingIndicator();
+          let data;
+          try { data = JSON.parse(payload); } catch { continue; }
 
           switch (data.type) {
-            case "status":
-              addMessage(data.message, "bot");
-              addTypingIndicator();
+            case 'status':
+              addStatus(data.message, 'status');
               break;
-
-            case "phase":
-              addMessage(data.message, "bot");
-              addTypingIndicator();
+            case 'search':
+              addStatus(data.message, 'search');
               break;
-
-            case "search_progress":
-              if (!progressDiv) {
-                progressDiv = addMessage(data.message, "bot", true);
-              } else {
-                updateBotMessage(progressDiv, escapeHtml(data.message) + (data.count ? `<br><strong>${data.count} companies found so far</strong>` : ""));
-              }
+            case 'text':
+              rawText += data.text;
+              renderResults(query);
               break;
-
-            case "search_complete":
-              progressDiv = null;
-              addMessage(data.message, "bot");
-              addTypingIndicator();
+            case 'error':
+              addStatus('Error: ' + data.message, 'error');
               break;
-
-            case "scrape_progress": {
-              const pct = data.percent || 0;
-              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete</small>`;
-              if (!progressDiv) {
-                progressDiv = addMessage(progressHtml, "bot", true);
-              } else {
-                updateBotMessage(progressDiv, progressHtml);
-              }
-              break;
-            }
-
-            case "search_error":
-              addMessage(data.message, "bot");
-              break;
-
-            case "error":
-              addMessage(data.message, "bot");
-              break;
-
-            case "results": {
-              progressDiv = null;
-              currentResults = data;
-
-              // Summary card
-              const summaryHtml = `<div class="summary-card">
-                <h3>&#10003; Search Complete!</h3>
-                <div class="summary-stats">
-                  <div class="stat"><span class="stat-label">Location</span><span class="stat-value">${escapeHtml(data.city)}, ${escapeHtml(data.state)}</span></div>
-                  <div class="stat"><span class="stat-label">Companies Found</span><span class="stat-value">${data.totalCompanies}</span></div>
-                  <div class="stat"><span class="stat-label">With Email</span><span class="stat-value">${data.withEmail} (${data.emailPercent}%)</span></div>
-                  <div class="stat"><span class="stat-label">With Phone</span><span class="stat-value">${data.withPhone} (${data.phonePercent}%)</span></div>
-                  <div class="stat"><span class="stat-label">Time Taken</span><span class="stat-value">${data.timeElapsed}</span></div>
-                </div>
-              </div>`;
-              addMessage(summaryHtml, "bot", true);
-
-              // Top results table
-              const previewCount = Math.min(10, data.results.length);
-              const tableHtml = `<strong>Top ${previewCount} Results:</strong><br><br>` + buildTable(data.results, previewCount);
-              addMessage(tableHtml, "bot", true);
-
-              // Collect specialties for filter
-              const allSpecs = new Set();
-              data.results.forEach(r => (r.specialties || []).forEach(s => allSpecs.add(s)));
-              const filterOptions = Array.from(allSpecs).map(s =>
-                `<div class="filter-option" onclick="filterBySpecialty('${escapeHtml(s)}')">${escapeHtml(s)}</div>`
-              ).join("");
-
-              // Action buttons
-              const actionsHtml = `<div>Would you like to:</div>
-                <div class="action-buttons">
-                  <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV</button>
-                  <button class="action-btn primary" onclick="downloadJSON()">&#128190; Download JSON</button>
-                  <button class="action-btn" onclick="showFullTable()">&#128200; View All ${data.totalCompanies} Results</button>
-                  ${allSpecs.size > 0 ? `<div class="filter-wrap">
-                    <button class="action-btn" onclick="this.nextElementSibling.classList.toggle('show')">&#128270; Filter by Specialty</button>
-                    <div class="filter-dropdown">
-                      <div class="filter-option" onclick="filterBySpecialty('all');this.parentElement.classList.remove('show')"><strong>All Companies</strong></div>
-                      ${filterOptions}
-                    </div>
-                  </div>` : ""}
-                  <button class="action-btn" onclick="clearChat()">&#128260; Search Another Location</button>
-                </div>`;
-              addMessage(actionsHtml, "bot", true);
-              break;
-            }
-
-            case "done":
+            case 'done':
+              addStatus('Search complete!', 'done');
               break;
           }
         }
       }
     } catch (err) {
-      removeTypingIndicator();
-      addMessage(`Connection error: ${err.message}. Please check the server is running and try again.`, "bot");
+      addStatus('Connection error: ' + err.message, 'error');
     }
 
-    removeTypingIndicator();
     isSearching = false;
-    document.getElementById("sendBtn").disabled = false;
-    document.getElementById("userInput").focus();
+    document.getElementById('searchBtn').disabled = false;
   }
 
-  // Check API key on load
-  fetch("/api/health").then(r => r.json()).then(data => {
+  function addStatus(msg, cls) {
+    const area = document.getElementById('statusArea');
+    const icon = cls === 'search' ? '&#128269; ' :
+                 cls === 'done' ? '&#10003; ' :
+                 cls === 'error' ? '&#10007; ' :
+                 '<span class="spinner"></span> ';
+    // Replace spinner status lines, keep search lines
+    const existing = area.querySelector('.status-line:not(.search):not(.done):not(.error)');
+    if (existing && cls === 'status') {
+      existing.innerHTML = icon + escapeHtml(msg);
+    } else {
+      const div = document.createElement('div');
+      div.className = 'status-line ' + cls;
+      div.innerHTML = icon + escapeHtml(msg);
+      area.appendChild(div);
+    }
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderResults(query) {
+    const area = document.getElementById('resultsArea');
+    const content = document.getElementById('resultsContent');
+    area.className = 'results-area show';
+    document.getElementById('resultsTitle').textContent = 'Results for "' + query + '"';
+    content.innerHTML = markdownToHtml(rawText);
+  }
+
+  // Simple markdown to HTML (handles tables, headers, lists, links, bold)
+  function markdownToHtml(md) {
+    const lines = md.split('\n');
+    let html = '';
+    let inTable = false;
+    let inList = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // Table row
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        const cells = line.split('|').slice(1, -1).map(c => c.trim());
+        // Skip separator rows
+        if (cells.every(c => /^[-:]+$/.test(c))) continue;
+
+        if (!inTable) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += '<table><thead><tr>';
+          cells.forEach(c => html += '<th>' + inlineFormat(c) + '</th>');
+          html += '</tr></thead><tbody>';
+          inTable = true;
+        } else {
+          html += '<tr>';
+          cells.forEach(c => html += '<td>' + inlineFormat(c) + '</td>');
+          html += '</tr>';
+        }
+        continue;
+      } else if (inTable) {
+        html += '</tbody></table>';
+        inTable = false;
+      }
+
+      // Headers
+      if (line.startsWith('### ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += '<h3>' + inlineFormat(line.slice(4)) + '</h3>';
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += '<h2>' + inlineFormat(line.slice(3)) + '</h2>';
+        continue;
+      }
+      if (line.startsWith('# ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += '<h1>' + inlineFormat(line.slice(2)) + '</h1>';
+        continue;
+      }
+
+      // List items
+      if (/^[-*]\s/.test(line.trim())) {
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += '<li>' + inlineFormat(line.trim().slice(2)) + '</li>';
+        continue;
+      } else if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+
+      // Paragraph
+      if (line.trim()) {
+        html += '<p>' + inlineFormat(line) + '</p>';
+      }
+    }
+    if (inTable) html += '</tbody></table>';
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  function inlineFormat(text) {
+    // Escape HTML
+    text = escapeHtml(text);
+    // Bold
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Links [text](url)
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Bare URLs
+    text = text.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      if (text.includes('href="' + url)) return url; // already linked
+      return '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>';
+    });
+    return text;
+  }
+
+  // Export functions
+  function exportCSV() {
+    if (!rawText) return;
+    // Try to extract table data
+    const rows = [];
+    const lines = rawText.split('\n');
+    for (const line of lines) {
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        const cells = line.split('|').slice(1, -1).map(c => c.trim());
+        if (cells.every(c => /^[-:]+$/.test(c))) continue;
+        rows.push(cells.map(c => '"' + c.replace(/"/g, '""') + '"').join(','));
+      }
+    }
+    if (rows.length === 0) {
+      rows.push(rawText);
+    }
+    download(rows.join('\n'), 'modular-home-builders.csv', 'text/csv');
+  }
+
+  function exportJSON() {
+    if (!rawText) return;
+    const entries = [];
+    const lines = rawText.split('\n');
+    let headers = [];
+    for (const line of lines) {
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        const cells = line.split('|').slice(1, -1).map(c => c.trim());
+        if (cells.every(c => /^[-:]+$/.test(c))) continue;
+        if (headers.length === 0) {
+          headers = cells;
+        } else {
+          const obj = {};
+          cells.forEach((c, i) => obj[headers[i] || 'col' + i] = c);
+          entries.push(obj);
+        }
+      }
+    }
+    download(JSON.stringify(entries, null, 2), 'modular-home-builders.json', 'application/json');
+  }
+
+  function download(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Health check
+  fetch('/api/health').then(r => r.json()).then(data => {
     if (!data.hasApiKey) {
-      addMessage("&#9888; No ANTHROPIC_API_KEY detected. Set the environment variable and restart the server to begin searching.", "bot", true);
+      const area = document.getElementById('statusArea');
+      area.className = 'status-area show';
+      area.innerHTML = '<div class="status-line error" style="color:#dc2626">&#9888; No ANTHROPIC_API_KEY set. Set the environment variable and restart the server.</div>';
     }
   }).catch(() => {});
 </script>
