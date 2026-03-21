@@ -17,7 +17,9 @@ function getClient() {
 
 // Throttle: wait between API calls to stay under rate limits
 let lastApiCallTime = 0;
-const MIN_API_INTERVAL_MS = 4000; // 4 seconds between calls
+// Haiku: 50K input tokens/min, ~3-5K tokens per web search call = ~10-16 calls/min safe
+// 5 seconds between calls = 12 calls/min max, well within limits
+const MIN_API_INTERVAL_MS = 5000;
 
 async function throttle() {
   const now = Date.now();
@@ -68,7 +70,7 @@ function extractText(resp) {
 async function parseLocation(client, message) {
   const resp = await withRetry(() =>
     client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 400,
       messages: [
         {
@@ -102,7 +104,7 @@ Message: "${message}"`,
 async function getCitiesForState(client, state) {
   const resp = await withRetry(() =>
     client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1500,
       messages: [
         {
@@ -143,7 +145,7 @@ function addCompanyToMap(map, company) {
 async function runSearchQuery(client, query, extractionPrompt) {
   const resp = await withRetry(() =>
     client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       tools: [
         {
@@ -367,7 +369,7 @@ Include every company found.`;
 }
 
 // ============================================================
-// CONTACT SCRAPING (3-phase per company)
+// CONTACT SCRAPING (single-phase per company — saves 2 API calls each)
 // ============================================================
 
 function parseScrapedData(text) {
@@ -391,94 +393,6 @@ function parseScrapedData(text) {
   }
 }
 
-async function crawlWebsite(client, company, domain) {
-  const resp = await withRetry(() =>
-    client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-      messages: [
-        {
-          role: "user",
-          content: `Find email and phone for: ${company.name} (${company.website})
-
-Search: site:${domain} contact, site:${domain} email phone, "${company.website}/contact-us"
-
-Reply ONLY valid JSON:
-{"name":"Company name","website":"${company.website}","email":"email or null","salesEmail":"sales email or null","phone":"phone or null","specialties":["Manufactured Homes","Modular Homes","Tiny Homes","Commercial Modular"],"sourceUrl":"URL","confidence":"high or low"}
-
-Only report what you actually see. Never guess.`,
-        },
-      ],
-    })
-  );
-  return extractText(resp);
-}
-
-async function searchDirectories(client, company, domain, state) {
-  const resp = await withRetry(() =>
-    client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-      messages: [
-        {
-          role: "user",
-          content: `Find email and phone for "${company.name}" in ${state} from external directories.
-
-Search: "${company.name}" email phone ${state}, "${company.name}" site:bbb.org OR site:yelp.com, "${domain}" contact email
-
-Reply ONLY valid JSON:
-{"name":"Company name","website":"${company.website}","email":"email or null","salesEmail":"sales email or null","phone":"phone or null","specialties":["Manufactured Homes","Modular Homes","Tiny Homes","Commercial Modular"],"sourceUrl":"URL","confidence":"high or low"}
-
-Only report what you actually see.`,
-        },
-      ],
-    })
-  );
-  return extractText(resp);
-}
-
-async function deepContactHunt(client, company, domain, state) {
-  const resp = await withRetry(() =>
-    client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-      messages: [
-        {
-          role: "user",
-          content: `Find email/phone for "${company.name}" (${domain}) in ${state}. Try creative searches like "@${domain}", "${company.name}" phone number, "${company.name}" owner email.
-
-Reply ONLY JSON: {"email":"email or null","salesEmail":"sales email or null","phone":"phone or null","sourceUrl":"where found"}
-
-Only report what you actually find.`,
-        },
-      ],
-    })
-  );
-  return extractText(resp);
-}
-
-function mergeData(primary, secondary) {
-  if (!primary && !secondary) return null;
-  if (!primary) return secondary;
-  if (!secondary) return primary;
-  return {
-    name: primary.name || secondary.name,
-    website: primary.website || secondary.website,
-    email: primary.email || secondary.email || null,
-    salesEmail: primary.salesEmail || secondary.salesEmail || null,
-    phone: primary.phone || secondary.phone || null,
-    specialties:
-      primary.specialties?.length > 0
-        ? primary.specialties
-        : secondary.specialties || [],
-    sourceUrl: (primary.email ? primary.sourceUrl : secondary.sourceUrl) || "",
-    confidence: primary.confidence || secondary.confidence || "low",
-  };
-}
-
 async function scrapeCompany(client, company, state, onPhaseUpdate) {
   let domain = "";
   try {
@@ -486,44 +400,44 @@ async function scrapeCompany(client, company, state, onPhaseUpdate) {
   } catch {}
 
   try {
-    onPhaseUpdate(company.name, "Phase 1/3: Crawling website...");
-    const phase1Text = await crawlWebsite(client, company, domain);
-    const phase1Data = parseScrapedData(phase1Text);
+    onPhaseUpdate(company.name, "Scraping contact info...");
+    const resp = await withRetry(() =>
+      client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+        messages: [
+          {
+            role: "user",
+            content: `Find email and phone for: ${company.name}
+Website: ${company.website}
 
-    onPhaseUpdate(company.name, "Phase 2/3: Searching directories...");
-    const phase2Text = await searchDirectories(client, company, domain, state);
-    const phase2Data = parseScrapedData(phase2Text);
+Search their website contact page and directories for contact info. Try: site:${domain} contact email phone, "${company.name}" ${state} email phone
 
-    let merged = mergeData(phase1Data, phase2Data);
+Reply ONLY JSON:
+{"name":"${company.name}","website":"${company.website}","email":"found email or null","salesEmail":"sales email or null","phone":"found phone or null","specialties":["only include applicable: Manufactured Homes, Modular Homes, Tiny Homes, Commercial Modular"],"sourceUrl":"URL where found","confidence":"high or low"}
 
-    if (!merged || !merged.email || !merged.phone) {
-      onPhaseUpdate(company.name, "Phase 3/3: Deep contact hunt...");
-      const phase3Text = await deepContactHunt(client, company, domain, state);
-      const phase3Data = parseScrapedData(phase3Text);
+Only report what you actually find in search results. Never guess.`,
+          },
+        ],
+      })
+    );
 
-      if (phase3Data) {
-        merged = merged || {};
-        merged.email = merged.email || phase3Data.email || null;
-        merged.salesEmail = merged.salesEmail || phase3Data.salesEmail || null;
-        merged.phone = merged.phone || phase3Data.phone || null;
-        if (phase3Data.sourceUrl && !merged.sourceUrl) {
-          merged.sourceUrl = phase3Data.sourceUrl;
-        }
-      }
-    }
+    const text = extractText(resp);
+    const data = parseScrapedData(text);
 
     return {
-      name: merged?.name || company.name,
+      name: data?.name || company.name,
       website: company.website,
-      email: merged?.email || null,
-      salesEmail: merged?.salesEmail || null,
-      phone: merged?.phone || null,
-      specialties: merged?.specialties || [],
-      sourceUrl: merged?.sourceUrl || "",
+      email: data?.email || null,
+      salesEmail: data?.salesEmail || null,
+      phone: data?.phone || null,
+      specialties: data?.specialties || [],
+      sourceUrl: data?.sourceUrl || "",
       confidence:
-        merged?.email && merged?.phone
+        data?.email && data?.phone
           ? "high"
-          : merged?.email || merged?.phone
+          : data?.email || data?.phone
             ? "medium"
             : "low",
       status: "success",
@@ -595,8 +509,8 @@ app.post("/api/search", async (req, res) => {
     send({
       type: "status",
       message: statewide
-        ? `Starting exhaustive statewide search for ALL modular/manufactured home companies in ${state}. This will search every city, every directory, and every manufacturer dealer network. This may take 1-3 hours for comprehensive results.`
-        : `Searching for modular home builders in ${city}, ${state}. This does a thorough deep scrape — please be patient.`,
+        ? `Great! I'll search for modular home builders across ${state}. This might take 5-7 minutes...`
+        : `Great! I'll search for modular home builders in ${city}, ${state}. This might take 5-7 minutes...`,
     });
 
     // Step 2: Discovery — find every company possible
@@ -635,7 +549,7 @@ app.post("/api/search", async (req, res) => {
     send({
       type: "phase",
       phase: "scrape",
-      message: `PHASE 2: CONTACT SCRAPING — Deep-scraping ${companies.length} companies one by one (3 phases each)...`,
+      message: `PHASE 2: CONTACT SCRAPING — Scraping ${companies.length} companies for emails, phones & specialties...`,
     });
 
     const results = [];
@@ -643,13 +557,13 @@ app.post("/api/search", async (req, res) => {
     for (let i = 0; i < companies.length; i++) {
       const company = companies[i];
 
-      const onPhaseUpdate = (name, phase) => {
+      const onPhaseUpdate = (name, status) => {
         send({
           type: "scrape_progress",
-          message: `[${i + 1}/${companies.length}] ${name} — ${phase}`,
+          message: `[${i + 1}/${companies.length}] ${name} — ${status}`,
           current: i + 1,
           total: companies.length,
-          percent: Math.round(((i + 0.5) / companies.length) * 100),
+          percent: Math.round(((i) / companies.length) * 100),
         });
       };
 
