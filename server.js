@@ -211,7 +211,7 @@ async function discoverCompanies(client, city, state, statewide, onProgress) {
   function makePrompt(query, locationDesc) {
     return `Search the web for: ${query}
 
-Find ALL modular/manufactured/prefab/tiny/panelized home builders, dealers, and companies in ${locationDesc}. Extract EVERY company mentioned anywhere in the search results.
+Find ALL modular/manufactured/prefab/tiny/panelized home builders, dealers, retailers, sales centers, resellers, and companies in ${locationDesc}. Include builders, manufacturers, dealers, retailers, sales lots, and anyone who sells or builds these homes. Extract EVERY company mentioned anywhere in the search results.
 
 For each company, extract:
 - Company name (the actual business name)
@@ -242,6 +242,14 @@ IMPORTANT: Include EVERY single company you see in the results. Do not filter or
     `modular construction companies ${state}`,
     `factory built homes ${state} dealers`,
     `HUD homes dealers ${state}`,
+    `manufactured home sales centers ${state}`,
+    `mobile home dealers ${state}`,
+    `modular home retailers ${state}`,
+    `manufactured home sales lots ${state}`,
+    `mobile home sales ${state} dealers`,
+    `used manufactured homes dealers ${state}`,
+    `double wide mobile home dealers ${state}`,
+    `single wide manufactured home retailers ${state}`,
   ];
 
   if (isCanadian) {
@@ -276,6 +284,11 @@ IMPORTANT: Include EVERY single company you see in the results. Do not filter or
     `MHI manufactured housing ${state} members`,
     `modular home builders ${state} site:buildzoom.com`,
     `manufactured homes ${state} site:homeadvisor.com`,
+    `manufactured home retailers ${state} site:mhvillage.com`,
+    `mobile home dealers ${state} site:mhvillage.com`,
+    `manufactured home sales ${state} site:yellowpages.com`,
+    `mobile home dealers ${state} site:mapquest.com`,
+    `"manufactured home" OR "mobile home" dealer ${state} site:bbb.org`,
   ];
 
   for (const q of directoryQueries) {
@@ -337,6 +350,8 @@ IMPORTANT: Include EVERY single company you see in the results. Do not filter or
     (c, s) => `manufactured home dealers ${c} ${s}`,
     (c, s) => `prefab home builders near ${c} ${s}`,
     (c, s) => `tiny home builders ${c} ${s}`,
+    (c, s) => `mobile home dealers ${c} ${s}`,
+    (c, s) => `manufactured home sales center ${c} ${s}`,
   ];
 
   for (let ci = 0; ci < cities.length; ci++) {
@@ -371,6 +386,35 @@ IMPORTANT: Include EVERY single company you see in the results. Do not filter or
 
   for (const q of deepQueries) {
     await search(q, makePrompt(q, state), "Round 5: Deep sweep");
+  }
+
+  // ---- ROUND 6: Retailers & sales centers — dedicated retail sweep ----
+  onProgress({
+    type: "discovery_round",
+    round: 6,
+    message: `Round 6: Retailers, sales centers & mobile home dealers in ${state}...`,
+  });
+
+  const retailQueries = [
+    `manufactured home retailers ${state} complete list`,
+    `mobile home dealers ${state} directory`,
+    `manufactured home sales centers ${state}`,
+    `"mobile home" OR "manufactured home" "sales center" ${state}`,
+    `modular home sales ${state} showroom`,
+    `manufactured home lot sales ${state}`,
+    `mobile home resellers ${state}`,
+    `manufactured home superstore ${state}`,
+    `"homes for sale" manufactured dealer ${state}`,
+    `repo manufactured homes dealers ${state}`,
+    `affordable manufactured homes retailers ${state}`,
+    `modular home display center ${state}`,
+    `manufactured home communities sales ${state}`,
+    `mobile home parks with sales office ${state}`,
+    `land home packages ${state} manufactured`,
+  ];
+
+  for (const q of retailQueries) {
+    await search(q, makePrompt(q, state), "Round 6: Retailers");
   }
 
   onProgress({
