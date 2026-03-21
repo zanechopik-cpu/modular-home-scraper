@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Validate API key exists
 function getClient() {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY environment variable is not set");
@@ -16,37 +15,58 @@ function getClient() {
   return new Anthropic();
 }
 
-// Retry wrapper for API calls — retries on transient errors
-async function withRetry(fn, maxRetries = 2) {
+// Retry wrapper — retries on transient errors with exponential backoff
+async function withRetry(fn, maxRetries = 3) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       const isLast = attempt === maxRetries;
-      const isTransient = err.status === 429 || err.status === 500 || err.status === 502 || err.status === 503 || err.message?.includes("ECONNRESET");
+      const isTransient =
+        err.status === 429 ||
+        err.status === 500 ||
+        err.status === 502 ||
+        err.status === 503 ||
+        err.message?.includes("ECONNRESET") ||
+        err.message?.includes("ETIMEDOUT");
       if (isLast || !isTransient) throw err;
-      // Exponential backoff: 3s, 6s
-      const delay = 3000 * (attempt + 1);
+      const delay = 3000 * Math.pow(2, attempt); // 3s, 6s, 12s
       await new Promise((r) => setTimeout(r, delay));
     }
   }
 }
 
-// Parse location from user message using Claude
+// Extract text blocks from Claude response
+function extractText(resp) {
+  let text = "";
+  for (const block of resp.content) {
+    if (block.type === "text") text += block.text;
+  }
+  return text;
+}
+
+// Parse location — supports "city, state" OR just "state" for statewide searches
 async function parseLocation(client, message) {
   const resp = await withRetry(() =>
     client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 300,
+      max_tokens: 400,
       messages: [
         {
           role: "user",
-          content: `Extract the city and state/province from this message. The user is looking for modular/manufactured/prefab/tiny home builders. This works for ALL 50 US states AND all 13 Canadian provinces/territories.
+          content: `Extract the location from this message. The user is looking for modular/manufactured/prefab/tiny home builders.
 
-For US locations, use the full state name (e.g., "California" not "CA").
-For Canadian locations, use the full province name (e.g., "Ontario" not "ON", "British Columbia" not "BC").
+The user may specify:
+- A city AND state (e.g., "builders in Denver, Colorado")
+- JUST a state or province (e.g., "all builders in Florida", "every company in Texas")
 
-Reply with ONLY valid JSON: {"city": "...", "state": "...", "understood": true} or {"understood": false, "reason": "..."} if you can't understand the request.
+For US locations, use full state names (e.g., "California" not "CA").
+For Canadian locations, use full province names (e.g., "Ontario" not "ON").
+
+Reply with ONLY valid JSON in one of these formats:
+- City + state: {"city": "Denver", "state": "Colorado", "statewide": false, "understood": true}
+- State only: {"city": null, "state": "Florida", "statewide": true, "understood": true}
+- Cannot understand: {"understood": false, "reason": "..."}
 
 Message: "${message}"`,
         },
@@ -59,8 +79,94 @@ Message: "${message}"`,
   return JSON.parse(jsonMatch[0]);
 }
 
-// Search for companies using Claude with web search
-async function searchCompanies(client, city, state, onProgress) {
+// Ask Claude to list all major cities/metros in a state for comprehensive searching
+async function getCitiesForState(client, state) {
+  const resp = await withRetry(() =>
+    client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: `List ALL cities and towns in ${state} where modular or manufactured home builders/dealers might operate. Include:
+- Every city with population over 20,000
+- Every county seat
+- Major suburban areas and metro satellite cities
+- Known manufactured housing market areas
+
+Be comprehensive — I need to search EVERY possible area. For a large state like Texas or Florida this could be 80-120+ cities. For smaller states it might be 20-40.
+
+Reply with ONLY a JSON array of city names: ["City1", "City2", ...]
+No state abbreviations, just city names.`,
+        },
+      ],
+    })
+  );
+  const text = resp.content[0].text.trim();
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return [];
+  }
+}
+
+// Add a company to the map (deduplicates by domain)
+function addCompanyToMap(map, company) {
+  if (!company.name || !company.website) return false;
+  let url = company.website.trim();
+  if (!url.startsWith("http")) url = "https://" + url;
+  try {
+    const domain = new URL(url).hostname.replace("www.", "");
+    if (!map.has(domain)) {
+      map.set(domain, { name: company.name.trim(), website: url });
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+// Run a single search query and extract companies from the response
+async function runSearchQuery(client, query, extractionPrompt) {
+  const resp = await withRetry(() =>
+    client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8192,
+      tools: [
+        {
+          type: "web_search_20250305",
+          name: "web_search",
+          max_uses: 10,
+        },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: extractionPrompt,
+        },
+      ],
+    })
+  );
+
+  const text = extractText(resp);
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return [];
+  }
+}
+
+// ============================================================
+// DISCOVERY ENGINE — finds as many companies as possible
+// ============================================================
+
+async function discoverCompanies(client, city, state, statewide, onProgress) {
+  const allCompanies = new Map();
+  let totalSearches = 0;
+
   const canadianProvinces = [
     "Alberta", "British Columbia", "Manitoba", "New Brunswick",
     "Newfoundland and Labrador", "Nova Scotia", "Ontario", "Prince Edward Island",
@@ -69,128 +175,231 @@ async function searchCompanies(client, city, state, onProgress) {
   const isCanadian = canadianProvinces.some(
     (p) => state.toLowerCase() === p.toLowerCase()
   );
+  const country = isCanadian ? "Canada" : "USA";
 
-  const searchQueries = [
-    `modular home builders ${city} ${state}`,
-    `manufactured home dealers ${city} ${state}`,
-    `prefab home builders ${city} ${state}`,
-    `tiny home builders ${city} ${state}`,
-    `panelized home builders ${city} ${state}`,
-    `modular home companies near ${city} ${state}`,
-    `"modular homes" OR "prefab homes" "${city}" "${state}" contact`,
-    `manufactured home dealers near ${city} ${state}`,
-    `custom modular homes ${city} ${state}`,
-  ];
-
-  if (isCanadian) {
-    searchQueries.push(
-      `modular home builders ${state} Canada`,
-      `prefabricated homes ${city} ${state} Canada`,
-      `manufactured homes ${state} Canada dealers`,
-    );
-  }
-
-  const allCompanies = new Map();
-  let searchCount = 0;
-
-  for (const query of searchQueries) {
-    searchCount++;
+  // Helper to run one search and collect results
+  async function search(query, prompt, roundLabel) {
+    totalSearches++;
     onProgress({
       type: "search_progress",
-      message: `Searching (${searchCount}/${searchQueries.length}): "${query}"...`,
+      message: `${roundLabel} — Search #${totalSearches}: "${query}"`,
       count: allCompanies.size,
     });
 
     try {
-      const resp = await withRetry(() =>
-        client.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 4096,
-          tools: [
-            {
-              type: "web_search_20250305",
-              name: "web_search",
-              max_uses: 7,
-            },
-          ],
-          messages: [
-            {
-              role: "user",
-              content: `Search the web for: ${query}
-
-Find ALL modular/manufactured/prefab/tiny home builders and dealers in or near ${city}, ${state}. For each company found, extract:
-- Company name
-- Website URL (the company's own website, not a directory listing)
-
-Reply with ONLY a JSON array of objects: [{"name": "Company Name", "website": "https://..."}]
-Include every company you can find. Do not include directory/listing sites themselves (like Yelp, BBB, etc) - only actual companies.`,
-            },
-          ],
-        })
-      );
-
-      let text = "";
-      for (const block of resp.content) {
-        if (block.type === "text") {
-          text += block.text;
-        }
+      const companies = await runSearchQuery(client, query, prompt);
+      let newCount = 0;
+      for (const c of companies) {
+        if (addCompanyToMap(allCompanies, c)) newCount++;
       }
-
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        try {
-          const companies = JSON.parse(jsonMatch[0]);
-          for (const company of companies) {
-            if (company.name && company.website) {
-              let url = company.website.trim();
-              if (!url.startsWith("http")) url = "https://" + url;
-              try {
-                const domain = new URL(url).hostname.replace("www.", "");
-                if (!allCompanies.has(domain)) {
-                  allCompanies.set(domain, {
-                    name: company.name.trim(),
-                    website: url,
-                  });
-                }
-              } catch {
-                // Skip invalid URLs
-              }
-            }
-          }
-        } catch {
-          // JSON parse failed, continue
-        }
+      if (newCount > 0) {
+        onProgress({
+          type: "search_progress",
+          message: `${roundLabel} — Found ${newCount} new companies (${allCompanies.size} total)`,
+          count: allCompanies.size,
+        });
       }
     } catch (err) {
       onProgress({
         type: "search_error",
-        message: `Search query failed: ${query} (${err.message}). Continuing...`,
+        message: `Search failed: "${query}" (${err.message}). Continuing...`,
       });
     }
   }
 
+  // Standard prompt for company extraction
+  function makePrompt(query, locationDesc) {
+    return `Search the web for: ${query}
+
+Find ALL modular/manufactured/prefab/tiny/panelized home builders, dealers, and companies in ${locationDesc}. Extract EVERY company mentioned anywhere in the search results.
+
+For each company, extract:
+- Company name (the actual business name)
+- Website URL (the company's own website, NOT directory listings like Yelp/BBB)
+
+Reply with ONLY a JSON array: [{"name": "Company Name", "website": "https://..."}]
+
+IMPORTANT: Include EVERY single company you see in the results. Do not filter or limit. Even if a company seems small or you're unsure, include it.`;
+  }
+
+  // ---- ROUND 1: Broad state-wide searches ----
+  onProgress({
+    type: "discovery_round",
+    round: 1,
+    message: `Round 1: State-wide searches for ${state}...`,
+  });
+
+  const stateQueries = [
+    `all modular home builders in ${state}`,
+    `all manufactured home dealers in ${state}`,
+    `prefab home builders ${state} complete list`,
+    `modular home companies ${state} directory`,
+    `manufactured housing dealers ${state}`,
+    `tiny home builders ${state}`,
+    `"modular homes" "${state}" builders list`,
+    `"manufactured homes" "${state}" dealers directory`,
+    `panelized home builders ${state}`,
+    `modular construction companies ${state}`,
+    `factory built homes ${state} dealers`,
+    `HUD homes dealers ${state}`,
+  ];
+
+  if (isCanadian) {
+    stateQueries.push(
+      `modular home builders ${state} Canada list`,
+      `prefabricated homes ${state} Canada companies`,
+      `manufactured homes ${state} Canada directory`,
+    );
+  }
+
+  for (const q of stateQueries) {
+    await search(q, makePrompt(q, state), "Round 1: State-wide");
+  }
+
+  // ---- ROUND 2: Industry directory searches ----
+  onProgress({
+    type: "discovery_round",
+    round: 2,
+    message: `Round 2: Industry directory searches for ${state}...`,
+  });
+
+  const directoryQueries = [
+    `site:modularhomes.com ${state}`,
+    `site:manufacturedhomes.com ${state}`,
+    `site:modularhomeowners.com ${state}`,
+    `site:prefabreviews.com ${state}`,
+    `"modular home" builders ${state} site:houzz.com`,
+    `manufactured home dealers ${state} site:mhvillage.com`,
+    `${state} manufactured housing association members`,
+    `${state} modular building institute members`,
+    `${state} home builders association modular`,
+    `MHI manufactured housing ${state} members`,
+    `modular home builders ${state} site:buildzoom.com`,
+    `manufactured homes ${state} site:homeadvisor.com`,
+  ];
+
+  for (const q of directoryQueries) {
+    await search(q, makePrompt(q, state), "Round 2: Directories");
+  }
+
+  // ---- ROUND 3: Manufacturer dealer network searches ----
+  onProgress({
+    type: "discovery_round",
+    round: 3,
+    message: `Round 3: Manufacturer dealer networks in ${state}...`,
+  });
+
+  const dealerQueries = [
+    `Clayton Homes dealers ${state}`,
+    `Champion Homes dealers ${state}`,
+    `Cavco homes dealers ${state}`,
+    `Skyline Champion dealers ${state}`,
+    `Palm Harbor Homes dealers ${state}`,
+    `Fleetwood Homes dealers ${state}`,
+    `Adventure Homes dealers ${state}`,
+    `Sunshine Homes dealers ${state}`,
+    `Jacobsen Homes dealers ${state}`,
+    `Commodore Homes dealers ${state}`,
+    `Redman Homes dealers ${state}`,
+    `Nobility Homes dealers ${state}`,
+    `Franklin Homes dealers ${state}`,
+    `TRU Homes dealers ${state}`,
+    `Deer Valley Homebuilders dealers ${state}`,
+    `manufactured home retailers ${state}`,
+  ];
+
+  for (const q of dealerQueries) {
+    await search(q, makePrompt(q, state), "Round 3: Dealer networks");
+  }
+
+  // ---- ROUND 4: City-by-city searches ----
+  // Determine which cities to search
+  let cities = [];
+  if (statewide) {
+    onProgress({
+      type: "discovery_round",
+      round: 4,
+      message: `Round 4: Identifying all cities in ${state} to search...`,
+    });
+    cities = await getCitiesForState(client, state);
+    onProgress({
+      type: "search_progress",
+      message: `Found ${cities.length} cities in ${state} to search individually`,
+      count: allCompanies.size,
+    });
+  } else {
+    cities = [city];
+  }
+
+  // Search each city with multiple query types
+  const cityQueryTypes = [
+    (c, s) => `modular home builders ${c} ${s}`,
+    (c, s) => `manufactured home dealers ${c} ${s}`,
+    (c, s) => `prefab home builders near ${c} ${s}`,
+    (c, s) => `tiny home builders ${c} ${s}`,
+  ];
+
+  for (let ci = 0; ci < cities.length; ci++) {
+    const cityName = cities[ci];
+    const cityLabel = `Round 4: Cities [${ci + 1}/${cities.length}] ${cityName}`;
+
+    for (const mkQuery of cityQueryTypes) {
+      const q = mkQuery(cityName, state);
+      await search(q, makePrompt(q, `${cityName}, ${state}`), cityLabel);
+    }
+  }
+
+  // ---- ROUND 5: Deep sweep — catch stragglers ----
+  onProgress({
+    type: "discovery_round",
+    round: 5,
+    message: `Round 5: Deep sweep — additional search strategies for ${state}...`,
+  });
+
+  const deepQueries = [
+    `"modular home" OR "manufactured home" OR "prefab home" builders ${state} -site:yelp.com -site:facebook.com`,
+    `"modular homes" "${state}" "contact us"`,
+    `"manufactured housing" companies ${state} list`,
+    `modular home builders ${state} reviews`,
+    `new manufactured homes for sale ${state} dealers`,
+    `custom modular homes ${state} builders`,
+    `commercial modular buildings ${state}`,
+    `modular home builders ${state} BBB accredited`,
+    `"modular home" "${state}" site:google.com/maps`,
+    `factory built housing ${state} retailers directory`,
+  ];
+
+  for (const q of deepQueries) {
+    await search(q, makePrompt(q, state), "Round 5: Deep sweep");
+  }
+
+  onProgress({
+    type: "search_progress",
+    message: `Discovery complete! Found ${allCompanies.size} unique companies after ${totalSearches} searches.`,
+    count: allCompanies.size,
+  });
+
   return Array.from(allCompanies.values());
 }
 
-// Helper to extract and validate scraped data from Claude's response
+// ============================================================
+// CONTACT SCRAPING (3-phase per company)
+// ============================================================
+
 function parseScrapedData(text) {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
   try {
     const data = JSON.parse(jsonMatch[0]);
-    // Validate email format
     if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       data.email = null;
     }
     if (data.salesEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.salesEmail)) {
       data.salesEmail = null;
     }
-    // Validate phone number (must have 7-15 digits)
     if (data.phone) {
       const digits = data.phone.replace(/\D/g, "");
-      if (digits.length < 7 || digits.length > 15) {
-        data.phone = null;
-      }
+      if (digits.length < 7 || digits.length > 15) data.phone = null;
     }
     return data;
   } catch {
@@ -198,145 +407,48 @@ function parseScrapedData(text) {
   }
 }
 
-// Extract text blocks from Claude response
-function extractText(resp) {
-  let text = "";
-  for (const block of resp.content) {
-    if (block.type === "text") {
-      text += block.text;
-    }
-  }
-  return text;
-}
-
-// Phase 1: Crawl the company's own website pages thoroughly
 async function crawlWebsite(client, company, domain) {
   const resp = await withRetry(() =>
     client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 10,
-        },
-      ],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
       messages: [
         {
           role: "user",
-          content: `You are a thorough web scraper. Your ONLY job is to find the email address and phone number for this company by searching through their website.
+          content: `You are a thorough web scraper. Find the email address and phone number for this company by searching their website.
 
 Company: ${company.name}
 Website: ${company.website}
 Domain: ${domain}
 
-You MUST perform ALL of these searches. Do every single one — do NOT skip any or stop early:
+Perform ALL of these searches — do NOT skip any or stop early:
+1. site:${domain} contact
+2. site:${domain} email
+3. site:${domain} phone
+4. site:${domain} about
+5. "${company.website}/contact"
+6. "${company.website}/contact-us"
+7. "${company.website}/about"
+8. "${company.website}/about-us"
+9. "${company.website}/get-in-touch"
+10. site:${domain} "@"
 
-1. Search: site:${domain} contact
-2. Search: site:${domain} email
-3. Search: site:${domain} phone
-4. Search: site:${domain} about
-5. Search: "${company.website}/contact"
-6. Search: "${company.website}/contact-us"
-7. Search: "${company.website}/about"
-8. Search: "${company.website}/about-us"
-9. Search: "${company.website}/get-in-touch"
-10. Search: site:${domain} "@"
-
-For EACH search result, carefully read through ALL the text in every snippet. Look for:
-- Email addresses (contain @ symbol) — e.g., info@company.com, sales@company.com
-- Phone numbers — e.g., (555) 123-4567, 555-123-4567, 1-800-555-1234
-- Look in page titles, descriptions, snippets, URLs — everywhere
-
-After completing ALL searches, reply with ONLY valid JSON:
-{
-  "name": "Official company name as shown on their website",
-  "website": "${company.website}",
-  "email": "email found or null",
-  "salesEmail": "sales-specific email if different, or null",
-  "phone": "phone number found or null",
-  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
-  "sourceUrl": "URL where contact info was found",
-  "confidence": "high or low",
-  "pagesSearched": 0
-}
-
-RULES:
-- ONLY report emails/phones you actually SEE in the search results. Never guess or fabricate.
-- Set pagesSearched to the number of searches you actually performed.
-- Do NOT stop searching early — complete ALL 10 searches even if you find something early. You may find a better email on a later page.`,
-        },
-      ],
-    })
-  );
-  return extractText(resp);
-}
-
-// Phase 2: Search external directories, Google Business, social media for contact info
-async function searchDirectories(client, company, domain, city, state) {
-  const resp = await withRetry(() =>
-    client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 10,
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `You are a thorough web scraper. Search EXTERNAL sources to find the email address and phone number for this company.
-
-Company: ${company.name}
-Website: ${company.website}
-Domain: ${domain}
-Location: ${city}, ${state}
-
-Perform ALL of these searches — do NOT skip any:
-
-1. Search: "${company.name}" "${city}" email phone
-2. Search: "${company.name}" ${state} contact information
-3. Search: "${domain}" email
-4. Search: "${company.name}" site:facebook.com
-5. Search: "${company.name}" site:yelp.com
-6. Search: "${company.name}" site:bbb.org
-7. Search: "${company.name}" ${city} ${state} reviews contact
-8. Search: "${company.name}" google maps email phone
-9. Search: "${company.name}" "${state}" modular homes email
-10. Search: "${domain}" "@" contact
-
-External sources that often list email and phone:
-- Google Maps / Google Business Profile — often has email + phone in the sidebar
-- Facebook business pages — check the About section
-- Yelp business listings — check the business info sidebar
-- Better Business Bureau (BBB) — shows contact details
-- Houzz, HomeAdvisor, Angi — contractor profiles with contact info
-- Yellow Pages, Manta, Superpages — business directories
-- Industry directories (modularhomes.com, manufacturedhomes.com)
-
-Read ALL search result snippets carefully for email addresses (@) and phone numbers.
+Read ALL snippets for email addresses (@) and phone numbers.
 
 Reply with ONLY valid JSON:
 {
   "name": "Official company name",
   "website": "${company.website}",
-  "email": "email found or null",
-  "salesEmail": "sales-specific email if different, or null",
-  "phone": "phone number found or null",
+  "email": "email or null",
+  "salesEmail": "sales email or null",
+  "phone": "phone or null",
   "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
-  "sourceUrl": "URL where contact info was found",
+  "sourceUrl": "URL where found",
   "confidence": "high or low"
 }
 
-RULES:
-- ONLY report emails/phones you actually SEE in search results. Never guess.
-- Emails from Facebook pages, Yelp, BBB, Google Business etc. are VALID — report them.
-- If you find a phone but no email, still report the phone.
-- Do NOT stop early — perform ALL 10 searches.`,
+ONLY report emails/phones you actually SEE. Never guess. Complete ALL 10 searches.`,
         },
       ],
     })
@@ -344,60 +456,47 @@ RULES:
   return extractText(resp);
 }
 
-// Phase 3: Last-resort deep email/phone hunt — tries creative search strategies
-async function deepContactHunt(client, company, domain, city, state) {
+async function searchDirectories(client, company, domain, state) {
   const resp = await withRetry(() =>
     client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 8,
-        },
-      ],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
       messages: [
         {
           role: "user",
-          content: `IMPORTANT: I have already searched the company's website AND major directories but could NOT find an email or phone for this company. I need you to try CREATIVE and ALTERNATIVE search strategies.
+          content: `Search EXTERNAL sources for this company's email and phone number.
 
 Company: ${company.name}
 Website: ${company.website}
 Domain: ${domain}
-Location: ${city}, ${state}
+State: ${state}
 
-Try ALL of these alternative searches:
-
-1. Search: "${company.name}" email -site:${domain}
-2. Search: "${company.name}" "@${domain}"
-3. Search: "${company.name}" "${city}" phone number
-4. Search: "${company.name}" contact us email modular
-5. Search: inurl:${domain} email OR phone OR contact
-6. Search: "${company.name}" owner email ${state}
-7. Search: ${domain} whois email contact
-8. Search: "${company.name}" linkedin email modular homes
-
-Think creatively about where this company's contact info might be listed:
-- Business registration databases
-- LinkedIn company pages or owner profiles
-- Industry association member directories
-- Trade show exhibitor lists
-- Building permit records
-- News articles or press releases mentioning the company
-- Partnership or dealer network pages on other companies' sites
+Perform ALL searches:
+1. "${company.name}" email phone
+2. "${company.name}" ${state} contact information
+3. "${domain}" email
+4. "${company.name}" site:facebook.com
+5. "${company.name}" site:yelp.com
+6. "${company.name}" site:bbb.org
+7. "${company.name}" ${state} reviews contact
+8. "${company.name}" google maps email phone
+9. "${company.name}" "${state}" modular homes email
+10. "${domain}" "@" contact
 
 Reply with ONLY valid JSON:
 {
-  "email": "email found or null",
+  "name": "Company name",
+  "website": "${company.website}",
+  "email": "email or null",
   "salesEmail": "sales email or null",
-  "phone": "phone found or null",
-  "sourceUrl": "where you found it"
+  "phone": "phone or null",
+  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
+  "sourceUrl": "URL where found",
+  "confidence": "high or low"
 }
 
-RULES:
-- ONLY report what you actually find. Never fabricate.
-- Try ALL 8 searches. Do not stop early.`,
+ONLY report what you actually SEE. Never guess. Complete ALL 10 searches.`,
         },
       ],
     })
@@ -405,7 +504,43 @@ RULES:
   return extractText(resp);
 }
 
-// Merge two data objects — first takes priority, second fills gaps
+async function deepContactHunt(client, company, domain, state) {
+  const resp = await withRetry(() =>
+    client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      messages: [
+        {
+          role: "user",
+          content: `I already searched the company's website AND directories but could NOT find email/phone. Try CREATIVE alternative strategies.
+
+Company: ${company.name}
+Website: ${company.website}
+Domain: ${domain}
+State: ${state}
+
+Try ALL of these:
+1. "${company.name}" email -site:${domain}
+2. "${company.name}" "@${domain}"
+3. "${company.name}" phone number
+4. "${company.name}" contact us email modular
+5. inurl:${domain} email OR phone OR contact
+6. "${company.name}" owner email ${state}
+7. ${domain} whois email contact
+8. "${company.name}" linkedin email modular homes
+
+Reply with ONLY valid JSON:
+{"email": "email or null", "salesEmail": "sales email or null", "phone": "phone or null", "sourceUrl": "where found"}
+
+ONLY report what you actually find. Try ALL 8 searches.`,
+        },
+      ],
+    })
+  );
+  return extractText(resp);
+}
+
 function mergeData(primary, secondary) {
   if (!primary && !secondary) return null;
   if (!primary) return secondary;
@@ -417,7 +552,7 @@ function mergeData(primary, secondary) {
     salesEmail: primary.salesEmail || secondary.salesEmail || null,
     phone: primary.phone || secondary.phone || null,
     specialties:
-      (primary.specialties && primary.specialties.length > 0)
+      primary.specialties?.length > 0
         ? primary.specialties
         : secondary.specialties || [],
     sourceUrl: (primary.email ? primary.sourceUrl : secondary.sourceUrl) || "",
@@ -425,31 +560,26 @@ function mergeData(primary, secondary) {
   };
 }
 
-// Scrape a single company — three-phase: crawl website, search directories, deep hunt
-async function scrapeCompany(client, company, city, state, onPhaseUpdate) {
+async function scrapeCompany(client, company, state, onPhaseUpdate) {
   let domain = "";
   try {
     domain = new URL(company.website).hostname.replace("www.", "");
   } catch {}
 
   try {
-    // Phase 1: Crawl the company's own website
-    onPhaseUpdate(company.name, "Crawling website...");
+    onPhaseUpdate(company.name, "Phase 1/3: Crawling website...");
     const phase1Text = await crawlWebsite(client, company, domain);
     const phase1Data = parseScrapedData(phase1Text);
 
-    // Phase 2: Always search external directories to find additional/better data
-    onPhaseUpdate(company.name, "Searching directories...");
-    const phase2Text = await searchDirectories(client, company, domain, city, state);
+    onPhaseUpdate(company.name, "Phase 2/3: Searching directories...");
+    const phase2Text = await searchDirectories(client, company, domain, state);
     const phase2Data = parseScrapedData(phase2Text);
 
-    // Merge Phase 1 + Phase 2
     let merged = mergeData(phase1Data, phase2Data);
 
-    // Phase 3: If still missing email OR phone, do a deep hunt
     if (!merged || !merged.email || !merged.phone) {
-      onPhaseUpdate(company.name, "Deep contact hunt...");
-      const phase3Text = await deepContactHunt(client, company, domain, city, state);
+      onPhaseUpdate(company.name, "Phase 3/3: Deep contact hunt...");
+      const phase3Text = await deepContactHunt(client, company, domain, state);
       const phase3Data = parseScrapedData(phase3Text);
 
       if (phase3Data) {
@@ -463,23 +593,22 @@ async function scrapeCompany(client, company, city, state, onPhaseUpdate) {
       }
     }
 
-    // Finalize
-    const result = {
-      name: (merged && merged.name) || company.name,
+    return {
+      name: merged?.name || company.name,
       website: company.website,
-      email: (merged && merged.email) || null,
-      salesEmail: (merged && merged.salesEmail) || null,
-      phone: (merged && merged.phone) || null,
-      specialties: (merged && merged.specialties) || [],
-      sourceUrl: (merged && merged.sourceUrl) || "",
+      email: merged?.email || null,
+      salesEmail: merged?.salesEmail || null,
+      phone: merged?.phone || null,
+      specialties: merged?.specialties || [],
+      sourceUrl: merged?.sourceUrl || "",
       confidence:
-        (merged && merged.email && merged.phone) ? "high"
-        : (merged && (merged.email || merged.phone)) ? "medium"
-        : "low",
+        merged?.email && merged?.phone
+          ? "high"
+          : merged?.email || merged?.phone
+            ? "medium"
+            : "low",
       status: "success",
     };
-
-    return result;
   } catch (err) {
     return {
       ...company,
@@ -493,7 +622,10 @@ async function scrapeCompany(client, company, city, state, onPhaseUpdate) {
   }
 }
 
-// SSE endpoint for search with streaming progress
+// ============================================================
+// API ENDPOINT
+// ============================================================
+
 app.post("/api/search", async (req, res) => {
   const { message } = req.body;
 
@@ -501,7 +633,6 @@ app.post("/api/search", async (req, res) => {
     return res.status(400).json({ error: "Message is required" });
   }
 
-  // Set up SSE with no timeout
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -509,11 +640,9 @@ app.post("/api/search", async (req, res) => {
     "X-Accel-Buffering": "no",
   });
 
-  // Disable request timeout for long scrapes
   req.setTimeout(0);
   res.setTimeout(0);
 
-  // Keep connection alive with periodic heartbeats
   const heartbeat = setInterval(() => {
     res.write(": heartbeat\n\n");
   }, 15000);
@@ -534,33 +663,43 @@ app.post("/api/search", async (req, res) => {
         type: "error",
         message:
           location.reason ||
-          "I couldn't understand that location. Could you try something like 'Find modular home builders in Denver, Colorado'?",
+          "I couldn't understand that location. Try something like 'Find all modular home builders in Florida' or 'builders in Denver, Colorado'.",
       });
       send({ type: "done" });
       clearInterval(heartbeat);
       return res.end();
     }
 
-    const { city, state } = location;
+    const { city, state, statewide } = location;
+    const locationDesc = statewide ? state : `${city}, ${state}`;
+
     send({
       type: "status",
-      message: `Searching for modular home builders in ${city}, ${state}. This does a thorough deep scrape of every company — please be patient, it will take a while but the results will be comprehensive.`,
+      message: statewide
+        ? `Starting exhaustive statewide search for ALL modular/manufactured home companies in ${state}. This will search every city, every directory, and every manufacturer dealer network. This may take 1-3 hours for comprehensive results.`
+        : `Searching for modular home builders in ${city}, ${state}. This does a thorough deep scrape — please be patient.`,
     });
 
-    // Step 2: Search for companies
+    // Step 2: Discovery — find every company possible
     const startTime = Date.now();
     send({
       type: "phase",
-      phase: "search",
-      message: `Phase 1 of 2: Discovering modular home builders in ${city}, ${state}...`,
+      phase: "discovery",
+      message: `PHASE 1: DISCOVERY — Finding every modular/manufactured home company in ${locationDesc}...`,
     });
 
-    const companies = await searchCompanies(client, city, state, send);
+    const companies = await discoverCompanies(
+      client,
+      city,
+      state,
+      statewide || false,
+      send
+    );
 
     if (companies.length === 0) {
       send({
         type: "error",
-        message: `No modular home builders found in ${city}, ${state}. Try a larger nearby city or check the spelling.`,
+        message: `No modular home builders found in ${locationDesc}. Try a different state or check spelling.`,
       });
       send({ type: "done" });
       clearInterval(heartbeat);
@@ -569,15 +708,15 @@ app.post("/api/search", async (req, res) => {
 
     send({
       type: "search_complete",
-      message: `Found ${companies.length} companies! Now deep-scraping each website for contact info (this is the thorough part)...`,
+      message: `Discovery complete! Found ${companies.length} unique companies. Now deep-scraping each one for contact info...`,
       count: companies.length,
     });
 
-    // Step 3: Scrape each company ONE AT A TIME for maximum reliability
+    // Step 3: Scrape each company one at a time
     send({
       type: "phase",
       phase: "scrape",
-      message: `Phase 2 of 2: Deep-scraping ${companies.length} company websites one by one...`,
+      message: `PHASE 2: CONTACT SCRAPING — Deep-scraping ${companies.length} companies one by one (3 phases each)...`,
     });
 
     const results = [];
@@ -585,7 +724,6 @@ app.post("/api/search", async (req, res) => {
     for (let i = 0; i < companies.length; i++) {
       const company = companies[i];
 
-      // Phase update callback for granular progress
       const onPhaseUpdate = (name, phase) => {
         send({
           type: "scrape_progress",
@@ -596,7 +734,7 @@ app.post("/api/search", async (req, res) => {
         });
       };
 
-      const result = await scrapeCompany(client, company, city, state, onPhaseUpdate);
+      const result = await scrapeCompany(client, company, state, onPhaseUpdate);
       results.push(result);
 
       const hasEmail = result.email ? "email found" : "no email";
@@ -612,22 +750,29 @@ app.post("/api/search", async (req, res) => {
     }
 
     // Step 4: Compile results
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-    const minutes = Math.floor(elapsed / 60);
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
     const seconds = elapsed % 60;
+    const timeStr = hours > 0
+      ? `${hours}h ${minutes}m ${seconds}s`
+      : `${minutes}m ${seconds}s`;
     const withEmail = results.filter((r) => r.email).length;
     const withPhone = results.filter((r) => r.phone).length;
 
     const summary = {
       type: "results",
-      city,
+      city: city || "(statewide)",
       state,
+      statewide: statewide || false,
       totalCompanies: results.length,
       withEmail,
       withPhone,
-      emailPercent: Math.round((withEmail / results.length) * 100),
-      phonePercent: Math.round((withPhone / results.length) * 100),
-      timeElapsed: `${minutes}m ${seconds}s`,
+      emailPercent:
+        results.length > 0 ? Math.round((withEmail / results.length) * 100) : 0,
+      phonePercent:
+        results.length > 0 ? Math.round((withPhone / results.length) * 100) : 0,
+      timeElapsed: timeStr,
       results: results.map((r) => ({
         name: r.name || "Unknown",
         website: r.website || "",
@@ -655,7 +800,6 @@ app.post("/api/search", async (req, res) => {
   res.end();
 });
 
-// Health check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",

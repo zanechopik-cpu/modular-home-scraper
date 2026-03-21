@@ -197,6 +197,18 @@
       transition: width 0.3s;
     }
 
+    /* Discovery round badge */
+    .round-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
     /* Results table */
     .results-table-wrap {
       overflow-x: auto;
@@ -498,11 +510,11 @@
     <!-- Welcome -->
     <div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Ask me about modular, manufactured, prefab, or tiny home builders in any city. I'll search the web and scrape company websites for verified contact information.</p>
+      <p>Search for modular, manufactured, prefab, or tiny home builders by city or entire state. I'll exhaustively search the web, industry directories, and manufacturer dealer networks to find every company possible.</p>
       <div class="example-queries">
+        <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
+        <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
         <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Show me manufactured home companies in Tulsa, Oklahoma</button>
-        <button class="example-query" onclick="sendExample(this)">Any prefab home builders in Austin, Texas?</button>
         <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
       </div>
     </div>
@@ -512,10 +524,10 @@
 <!-- Input -->
 <div class="input-area">
   <div class="input-wrap">
-    <textarea id="userInput" rows="1" placeholder="Ask me about modular home builders..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+    <textarea id="userInput" rows="1" placeholder="Try 'Find all modular home builders in Florida' or 'builders in Denver, Colorado'..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
   </div>
-  <div class="input-hint">Press Enter to send. Thorough searches may take 15-30 minutes per city. Every company website, directory, and listing is scraped for contact info.</div>
+  <div class="input-hint">Press Enter to send. Statewide searches can take 1-3 hours and find 50-150+ companies. City searches take 15-30 min. No time limits.</div>
 </div>
 
 <!-- Help Modal -->
@@ -523,24 +535,33 @@
   <div class="modal">
     <button class="modal-close" onclick="closeHelp()">&#10005;</button>
     <h2>&#127968; How to Use</h2>
-    <h3>Example Questions</h3>
+    <h3>Example Queries</h3>
     <ul>
-      <li>"Find modular home builders in Oklahoma City, Oklahoma"</li>
-      <li>"Show me manufactured homes in Denver, Colorado"</li>
-      <li>"Any prefab builders in Vancouver, British Columbia?"</li>
-      <li>"Search for tiny home builders in Austin, TX"</li>
+      <li>"Find all modular and manufactured home companies in Florida" (statewide)</li>
+      <li>"Every modular home builder in Texas" (statewide)</li>
+      <li>"Find modular home builders in Denver, Colorado" (city)</li>
+      <li>"Any prefab builders in Vancouver, British Columbia?" (city)</li>
     </ul>
-    <h3>What I Do</h3>
-    <p>I search the web for modular/manufactured/prefab home builders in your specified location, then visit each company's website to extract verified contact information.</p>
-    <h3>Important Notes</h3>
+    <h3>How Discovery Works</h3>
+    <p>The app runs 5 discovery rounds to find every possible company:</p>
     <ul>
-      <li>Thorough searches may take 15-30 minutes per city — every company gets a deep 3-phase scrape</li>
-      <li>Email addresses are extracted from company websites, Google Business, Facebook, Yelp, BBB, and other directories — never guessed</li>
+      <li><strong>Round 1:</strong> State-wide keyword searches (12+ queries)</li>
+      <li><strong>Round 2:</strong> Industry directory searches (modularhomes.com, MHVillage, Houzz, etc.)</li>
+      <li><strong>Round 3:</strong> Manufacturer dealer networks (Clayton, Champion, Cavco, etc.)</li>
+      <li><strong>Round 4:</strong> City-by-city searches (every city in the state)</li>
+      <li><strong>Round 5:</strong> Deep sweep with alternative search strategies</li>
+    </ul>
+    <h3>Contact Scraping</h3>
+    <p>Every company gets a 3-phase deep scrape: website crawl, directory search, then a creative deep hunt. Emails and phones are ONLY extracted from actual sources — never guessed.</p>
+    <h3>Time &amp; Limits</h3>
+    <ul>
+      <li>Statewide searches: 1-3 hours, finds 50-150+ companies</li>
+      <li>City searches: 15-30 minutes, finds 10-40 companies</li>
+      <li>No time limits — the app runs until every company is found and scraped</li>
       <li>Results can be exported as CSV or JSON</li>
-      <li>Results are most accurate for major US and Canadian cities</li>
     </ul>
     <h3>Setup</h3>
-    <p>This app requires an ANTHROPIC_API_KEY environment variable. Get yours at <strong>console.anthropic.com</strong>.</p>
+    <p>Requires ANTHROPIC_API_KEY environment variable. Get yours at <strong>console.anthropic.com</strong>.</p>
   </div>
 </div>
 
@@ -554,13 +575,11 @@
 </div>
 
 <script>
-  // State
   let currentResults = null;
   let isSearching = false;
   let sortCol = null;
   let sortDir = 1;
 
-  // Dark mode
   function toggleDark() {
     document.body.classList.toggle("dark");
     const isDark = document.body.classList.contains("dark");
@@ -569,7 +588,6 @@
   }
   if (localStorage.getItem("darkMode") === "true") toggleDark();
 
-  // Auto-resize textarea
   function autoResize(el) {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
@@ -599,7 +617,6 @@
   function addMessage(text, type, html) {
     const welcome = document.getElementById("welcomeScreen");
     if (welcome) welcome.remove();
-
     const div = document.createElement("div");
     div.className = `message ${type}`;
     div.innerHTML = `<div class="message-bubble">${html ? text : escapeHtml(text)}</div><div class="message-time">${timeNow()}</div>`;
@@ -633,30 +650,27 @@
     scrollToBottom();
   }
 
-  // Clear chat
   function clearChat() {
     const msgs = document.getElementById("chatMessages");
     msgs.innerHTML = `<div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Ask me about modular, manufactured, prefab, or tiny home builders in any city.</p>
+      <p>Search for modular, manufactured, prefab, or tiny home builders by city or entire state.</p>
       <div class="example-queries">
+        <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
+        <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
         <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Show me manufactured home companies in Tulsa, Oklahoma</button>
-        <button class="example-query" onclick="sendExample(this)">Any prefab home builders in Austin, Texas?</button>
         <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
       </div>
     </div>`;
     currentResults = null;
   }
 
-  // Help
   function showHelp() { document.getElementById("helpModal").classList.add("show"); }
   function closeHelp() { document.getElementById("helpModal").classList.remove("show"); }
   document.getElementById("helpModal").addEventListener("click", (e) => {
     if (e.target === document.getElementById("helpModal")) closeHelp();
   });
 
-  // Full table
   function showFullTable() { document.getElementById("fullTableModal").classList.add("show"); renderFullTable(); }
   function closeFullTable() { document.getElementById("fullTableModal").classList.remove("show"); }
   document.getElementById("fullTableModal").addEventListener("click", (e) => {
@@ -668,7 +682,6 @@
     document.getElementById("fullTableContent").innerHTML = buildTable(currentResults.results, currentResults.results.length);
   }
 
-  // Build table HTML
   function buildTable(results, limit) {
     const rows = results.slice(0, limit);
     let html = `<div class="results-table-wrap"><table class="results-table">
@@ -714,7 +727,6 @@
     });
   }
 
-  // Export
   function downloadCSV() {
     if (!currentResults) return;
     const header = "Company Name,Website URL,General Email,Sales Email,Phone,Specialties,Source URL\n";
@@ -724,14 +736,16 @@
         .join(",")
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
-    downloadBlob(blob, `${currentResults.city}_${currentResults.state}_modular_homes_${dateStr()}.csv`);
+    const loc = currentResults.statewide ? currentResults.state : `${currentResults.city}_${currentResults.state}`;
+    downloadBlob(blob, `${loc}_modular_homes_${dateStr()}.csv`);
     addMessage(`Downloaded CSV with ${currentResults.results.length} companies.`, "bot", true);
   }
 
   function downloadJSON() {
     if (!currentResults) return;
     const blob = new Blob([JSON.stringify(currentResults.results, null, 2)], { type: "application/json" });
-    downloadBlob(blob, `${currentResults.city}_${currentResults.state}_modular_homes_${dateStr()}.json`);
+    const loc = currentResults.statewide ? currentResults.state : `${currentResults.city}_${currentResults.state}`;
+    downloadBlob(blob, `${loc}_modular_homes_${dateStr()}.json`);
     addMessage(`Downloaded JSON with ${currentResults.results.length} companies.`, "bot", true);
   }
 
@@ -749,7 +763,6 @@
     return `${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}_${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  // Filter by specialty
   function filterBySpecialty(specialty) {
     if (!currentResults) return;
     const filtered = specialty === "all"
@@ -760,7 +773,6 @@
     addMessage(html, "bot", true);
   }
 
-  // Send message
   async function sendMessage() {
     const input = document.getElementById("userInput");
     const text = input.value.trim();
@@ -775,6 +787,7 @@
     addTypingIndicator();
 
     let progressDiv = null;
+    let discoveryDiv = null;
 
     try {
       const response = await fetch("/api/search", {
@@ -811,20 +824,34 @@
               break;
 
             case "phase":
-              addMessage(data.message, "bot");
+              progressDiv = null;
+              discoveryDiv = null;
+              addMessage(`<strong>${escapeHtml(data.message)}</strong>`, "bot", true);
               addTypingIndicator();
               break;
 
-            case "search_progress":
-              if (!progressDiv) {
-                progressDiv = addMessage(data.message, "bot", true);
+            case "discovery_round": {
+              progressDiv = null;
+              const roundHtml = `<span class="round-badge">ROUND ${data.round}</span> ${escapeHtml(data.message)}`;
+              discoveryDiv = addMessage(roundHtml, "bot", true);
+              break;
+            }
+
+            case "search_progress": {
+              const msgHtml = `${escapeHtml(data.message)}${data.count ? `<br><strong>${data.count} unique companies found so far</strong>` : ""}`;
+              if (discoveryDiv) {
+                updateBotMessage(discoveryDiv, msgHtml);
+              } else if (!progressDiv) {
+                progressDiv = addMessage(msgHtml, "bot", true);
               } else {
-                updateBotMessage(progressDiv, escapeHtml(data.message) + (data.count ? `<br><strong>${data.count} companies found so far</strong>` : ""));
+                updateBotMessage(progressDiv, msgHtml);
               }
               break;
+            }
 
             case "search_complete":
               progressDiv = null;
+              discoveryDiv = null;
               addMessage(data.message, "bot");
               addTypingIndicator();
               break;
@@ -841,7 +868,7 @@
             }
 
             case "search_error":
-              addMessage(data.message, "bot");
+              // Don't show individual search errors to keep UI clean
               break;
 
             case "error":
@@ -852,11 +879,14 @@
               progressDiv = null;
               currentResults = data;
 
-              // Summary card
+              const locLabel = data.statewide
+                ? `${escapeHtml(data.state)} (statewide)`
+                : `${escapeHtml(data.city)}, ${escapeHtml(data.state)}`;
+
               const summaryHtml = `<div class="summary-card">
                 <h3>&#10003; Search Complete!</h3>
                 <div class="summary-stats">
-                  <div class="stat"><span class="stat-label">Location</span><span class="stat-value">${escapeHtml(data.city)}, ${escapeHtml(data.state)}</span></div>
+                  <div class="stat"><span class="stat-label">Location</span><span class="stat-value">${locLabel}</span></div>
                   <div class="stat"><span class="stat-label">Companies Found</span><span class="stat-value">${data.totalCompanies}</span></div>
                   <div class="stat"><span class="stat-label">With Email</span><span class="stat-value">${data.withEmail} (${data.emailPercent}%)</span></div>
                   <div class="stat"><span class="stat-label">With Phone</span><span class="stat-value">${data.withPhone} (${data.phonePercent}%)</span></div>
@@ -865,22 +895,19 @@
               </div>`;
               addMessage(summaryHtml, "bot", true);
 
-              // Top results table
-              const previewCount = Math.min(10, data.results.length);
-              const tableHtml = `<strong>Top ${previewCount} Results:</strong><br><br>` + buildTable(data.results, previewCount);
+              const previewCount = Math.min(15, data.results.length);
+              const tableHtml = `<strong>Top ${previewCount} of ${data.totalCompanies} Results:</strong><br><br>` + buildTable(data.results, previewCount);
               addMessage(tableHtml, "bot", true);
 
-              // Collect specialties for filter
               const allSpecs = new Set();
               data.results.forEach(r => (r.specialties || []).forEach(s => allSpecs.add(s)));
               const filterOptions = Array.from(allSpecs).map(s =>
                 `<div class="filter-option" onclick="filterBySpecialty('${escapeHtml(s)}')">${escapeHtml(s)}</div>`
               ).join("");
 
-              // Action buttons
               const actionsHtml = `<div>Would you like to:</div>
                 <div class="action-buttons">
-                  <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV</button>
+                  <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV (${data.totalCompanies} companies)</button>
                   <button class="action-btn primary" onclick="downloadJSON()">&#128190; Download JSON</button>
                   <button class="action-btn" onclick="showFullTable()">&#128200; View All ${data.totalCompanies} Results</button>
                   ${allSpecs.size > 0 ? `<div class="filter-wrap">
@@ -912,7 +939,6 @@
     document.getElementById("userInput").focus();
   }
 
-  // Check API key on load
   fetch("/api/health").then(r => r.json()).then(data => {
     if (!data.hasApiKey) {
       addMessage("&#9888; No ANTHROPIC_API_KEY detected. Set the environment variable and restart the server to begin searching.", "bot", true);
