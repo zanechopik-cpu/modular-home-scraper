@@ -515,7 +515,7 @@
     <textarea id="userInput" rows="1" placeholder="Ask me about modular home builders..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
   </div>
-  <div class="input-hint">Press Enter to send. Searches take 5-7 minutes per city. Emails are only extracted from company websites.</div>
+  <div class="input-hint">Press Enter to send. Thorough searches may take 15-30 minutes per city. Every company website, directory, and listing is scraped for contact info.</div>
 </div>
 
 <!-- Help Modal -->
@@ -534,8 +534,8 @@
     <p>I search the web for modular/manufactured/prefab home builders in your specified location, then visit each company's website to extract verified contact information.</p>
     <h3>Important Notes</h3>
     <ul>
-      <li>Searches usually take 5-7 minutes per city</li>
-      <li>Email addresses are <strong>only</strong> extracted from company websites - never guessed</li>
+      <li>Thorough searches may take 15-30 minutes per city — every company gets a deep 3-phase scrape</li>
+      <li>Email addresses are extracted from company websites, Google Business, Facebook, Yelp, BBB, and other directories — never guessed</li>
       <li>Results can be exported as CSV or JSON</li>
       <li>Results are most accurate for major US and Canadian cities</li>
     </ul>
@@ -831,7 +831,7 @@
 
             case "scrape_progress": {
               const pct = data.percent || 0;
-              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete &mdash; Deep scraping each website (contact pages, about pages, directories)</small>`;
+              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete &mdash; 3-phase scrape: website crawl &rarr; directory search &rarr; deep contact hunt</small>`;
               if (!progressDiv) {
                 progressDiv = addMessage(progressHtml, "bot", true);
               } else {
