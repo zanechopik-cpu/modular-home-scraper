@@ -24,7 +24,14 @@ async function parseLocation(client, message) {
     messages: [
       {
         role: "user",
-        content: `Extract the city and state/province from this message. If the user is asking about modular/manufactured/prefab/tiny homes, extract the location. Reply with ONLY valid JSON: {"city": "...", "state": "...", "understood": true} or {"understood": false, "reason": "..."} if you can't understand the request.\n\nMessage: "${message}"`,
+        content: `Extract the city and state/province from this message. The user is looking for modular/manufactured/prefab/tiny home builders. This works for ALL 50 US states AND all 13 Canadian provinces/territories.
+
+For US locations, use the full state name (e.g., "California" not "CA").
+For Canadian locations, use the full province name (e.g., "Ontario" not "ON", "British Columbia" not "BC").
+
+Reply with ONLY valid JSON: {"city": "...", "state": "...", "understood": true} or {"understood": false, "reason": "..."} if you can't understand the request.
+
+Message: "${message}"`,
       },
     ],
   });
@@ -36,6 +43,16 @@ async function parseLocation(client, message) {
 
 // Search for companies using Claude with web search
 async function searchCompanies(client, city, state, onProgress) {
+  // Detect if Canadian province for adapted queries
+  const canadianProvinces = [
+    "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+    "Newfoundland and Labrador", "Nova Scotia", "Ontario", "Prince Edward Island",
+    "Quebec", "Saskatchewan", "Northwest Territories", "Nunavut", "Yukon",
+  ];
+  const isCanadian = canadianProvinces.some(
+    (p) => state.toLowerCase() === p.toLowerCase()
+  );
+
   const searchQueries = [
     `modular home builders ${city} ${state}`,
     `manufactured home dealers ${city} ${state}`,
@@ -43,7 +60,16 @@ async function searchCompanies(client, city, state, onProgress) {
     `tiny home builders ${city} ${state}`,
     `panelized home builders ${city} ${state}`,
     `modular home companies near ${city} ${state}`,
+    `"modular homes" OR "prefab homes" "${city}" "${state}" contact`,
   ];
+
+  // Add Canada-specific queries
+  if (isCanadian) {
+    searchQueries.push(
+      `modular home builders ${state} Canada`,
+      `prefabricated homes ${city} ${state} Canada`,
+    );
+  }
 
   const allCompanies = new Map();
   let searchCount = 0;
@@ -129,40 +155,67 @@ Include every company you can find. Do not include directory/listing sites thems
 }
 
 // Scrape a single company website for contact info
-async function scrapeCompany(client, company) {
+async function scrapeCompany(client, company, city, state) {
+  // Extract domain for targeted searches
+  let domain = "";
+  try {
+    domain = new URL(company.website).hostname.replace("www.", "");
+  } catch {}
+
   try {
     const resp = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 4096,
       tools: [
         {
           type: "web_search_20250305",
           name: "web_search",
-          max_uses: 3,
+          max_uses: 8,
         },
       ],
       messages: [
         {
           role: "user",
-          content: `Visit this company's website and extract contact information: ${company.website}
+          content: `I need to find the contact information (email address and phone number) for this company:
 
-Company name: ${company.name}
+Company: ${company.name}
+Website: ${company.website}
+Location: ${city}, ${state}
 
-Search for their contact page, about page, and home page. Extract ONLY information that is ACTUALLY VISIBLE on their website. Do NOT guess or invent any information.
+You MUST perform multiple searches to find their contact details. Follow these steps IN ORDER:
+
+1. Search for: "${company.name} ${city} ${state} contact email phone"
+2. Search for: site:${domain} contact email
+3. Search for: "${company.name}" email address
+4. Search for: ${company.website}/contact OR ${company.website}/contact-us
+5. If still no email found, search for: "${domain}" email
+
+Look for email addresses and phone numbers in the search results. Many companies list their email and phone in search result snippets, Google My Business listings, directory pages, social media profiles, and review sites.
+
+IMPORTANT TIPS:
+- Look for email addresses in ALL search results, not just the company's own website
+- Check Google Maps/Business listings which often show phone and email
+- Check Facebook, Yelp, BBB, and other directory pages which list contact info
+- Phone numbers often appear as (XXX) XXX-XXXX or XXX-XXX-XXXX formats
+- Email addresses contain @ symbols - look carefully in all result text
 
 Reply with ONLY valid JSON:
 {
-  "name": "Official company name as shown on website",
+  "name": "Official company name",
   "website": "${company.website}",
-  "email": "email if found on website, or null",
+  "email": "email address found, or null if truly not findable",
   "salesEmail": "sales-specific email if different and found, or null",
-  "phone": "phone number if found on website, or null",
-  "specialties": ["list of home types they build - only from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
-  "sourceUrl": "the specific page URL where you found the contact info",
+  "phone": "phone number found, or null if truly not findable",
+  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
+  "sourceUrl": "the page URL where you found the contact info",
   "confidence": "high or low"
 }
 
-CRITICAL: If you cannot find an email, set it to null. NEVER guess email formats. Only include specialties explicitly mentioned on the website.`,
+CRITICAL RULES:
+- Do NOT guess or fabricate email addresses. Only report emails you actually see in search results.
+- Do NOT invent info@ or sales@ emails - only report what you find.
+- DO report emails found on directory sites, social media, or Google Business listings - those count.
+- If you find a phone number but no email, still report the phone number.`,
         },
       ],
     });
@@ -186,6 +239,13 @@ CRITICAL: If you cannot find an email, set it to null. NEVER guess email formats
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.salesEmail)
       ) {
         data.salesEmail = null;
+      }
+      // Normalize phone number - strip non-digit chars for validation
+      if (data.phone) {
+        const digits = data.phone.replace(/\D/g, "");
+        if (digits.length < 7 || digits.length > 15) {
+          data.phone = null; // Invalid phone number
+        }
       }
       return { ...data, status: "success" };
     }
@@ -285,7 +345,7 @@ app.post("/api/search", async (req, res) => {
     for (let i = 0; i < companies.length; i += batchSize) {
       const batch = companies.slice(i, i + batchSize);
       const batchResults = await Promise.all(
-        batch.map((company) => scrapeCompany(client, company))
+        batch.map((company) => scrapeCompany(client, company, city, state))
       );
 
       for (let j = 0; j < batchResults.length; j++) {
