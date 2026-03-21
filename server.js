@@ -353,7 +353,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n🏠 Modular Home Builder Finder`);
   console.log(`   Running at http://localhost:${PORT}`);
   console.log(
