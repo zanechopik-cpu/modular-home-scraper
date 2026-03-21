@@ -831,7 +831,7 @@
 
             case "scrape_progress": {
               const pct = data.percent || 0;
-              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete</small>`;
+              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete &mdash; Deep scraping each website (contact pages, about pages, directories)</small>`;
               if (!progressDiv) {
                 progressDiv = addMessage(progressHtml, "bot", true);
               } else {

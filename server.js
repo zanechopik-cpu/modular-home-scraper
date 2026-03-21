@@ -154,102 +154,212 @@ Include every company you can find. Do not include directory/listing sites thems
   return Array.from(allCompanies.values());
 }
 
-// Scrape a single company website for contact info
+// Helper to extract and validate scraped data from Claude's response
+function parseScrapedData(text, company) {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    const data = JSON.parse(jsonMatch[0]);
+    // Validate email format
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      data.email = null;
+    }
+    if (data.salesEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.salesEmail)) {
+      data.salesEmail = null;
+    }
+    // Validate phone number (must have 7-15 digits)
+    if (data.phone) {
+      const digits = data.phone.replace(/\D/g, "");
+      if (digits.length < 7 || digits.length > 15) {
+        data.phone = null;
+      }
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// Extract text blocks from Claude response
+function extractText(resp) {
+  let text = "";
+  for (const block of resp.content) {
+    if (block.type === "text") {
+      text += block.text;
+    }
+  }
+  return text;
+}
+
+// Phase 1: Crawl the company's own website pages thoroughly
+async function crawlWebsite(client, company, domain) {
+  const resp = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 10,
+      },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: `You are a web scraper. Your job is to thoroughly search through a company's website to find their contact information (email and phone number).
+
+Company: ${company.name}
+Website: ${company.website}
+Domain: ${domain}
+
+You MUST search ALL of these pages on their website. Perform a separate search for EACH one:
+
+1. Search: site:${domain} contact
+2. Search: site:${domain} email
+3. Search: site:${domain} phone
+4. Search: site:${domain} about
+5. Search: "${company.website}/contact"
+6. Search: "${company.website}/contact-us"
+7. Search: "${company.website}/about"
+8. Search: "${company.website}/about-us"
+9. Search: "${company.website}/get-in-touch"
+10. Search: site:${domain} "footer" OR "@" OR "email us"
+
+For EACH search, carefully read through ALL the text in every search result snippet. Look for:
+- Email addresses (contain @ symbol) — e.g., info@company.com, sales@company.com
+- Phone numbers — e.g., (555) 123-4567, 555-123-4567, 1-800-555-1234
+- Look in page titles, descriptions, snippets, URLs — everywhere
+
+After completing all searches, reply with ONLY valid JSON:
+{
+  "name": "Official company name as shown on their website",
+  "website": "${company.website}",
+  "email": "email found or null",
+  "salesEmail": "sales-specific email if different, or null",
+  "phone": "phone number found or null",
+  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
+  "sourceUrl": "URL where contact info was found",
+  "confidence": "high or low",
+  "pagesSearched": 0
+}
+
+RULES:
+- ONLY report emails/phones you actually SEE in the search results. Never guess or fabricate.
+- Set pagesSearched to the number of searches you actually performed.
+- If a search returns no results, move on to the next one.
+- Do NOT stop searching early — go through ALL the searches listed above.`,
+      },
+    ],
+  });
+  return extractText(resp);
+}
+
+// Phase 2: Search external directories, Google Business, social media for contact info
+async function searchDirectories(client, company, domain, city, state) {
+  const resp = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 8,
+      },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: `I could not find complete contact info on the company's website. Now search EXTERNAL sources.
+
+Company: ${company.name}
+Website: ${company.website}
+Location: ${city}, ${state}
+
+Search these external sources for their email and phone number:
+
+1. Search: "${company.name}" "${city}" email phone
+2. Search: "${company.name}" ${state} contact information
+3. Search: "${domain}" email
+4. Search: "${company.name}" site:facebook.com OR site:yelp.com OR site:bbb.org
+5. Search: "${company.name}" ${city} ${state} reviews contact
+6. Search: "${company.name}" google maps email phone
+7. Search: "${company.name}" "${state}" modular homes email
+8. Search: "${domain}" "@"
+
+External sources that often have contact info:
+- Google Maps / Google Business Profile
+- Facebook business pages (often show email + phone in the About section)
+- Yelp business listings
+- Better Business Bureau (BBB)
+- Houzz, HomeAdvisor, Angi
+- State business registries
+- Industry directories (modularhomes.com, manufacturedhomes.com)
+- Yellow Pages, Manta, Superpages
+
+Read ALL search result snippets carefully for email addresses and phone numbers.
+
+Reply with ONLY valid JSON:
+{
+  "name": "Official company name",
+  "website": "${company.website}",
+  "email": "email found or null",
+  "salesEmail": "sales-specific email if different, or null",
+  "phone": "phone number found or null",
+  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
+  "sourceUrl": "URL where contact info was found",
+  "confidence": "high or low"
+}
+
+RULES:
+- ONLY report emails/phones you actually SEE in search results. Never guess.
+- Emails from Facebook pages, Yelp, BBB, Google Business etc. are VALID — report them.
+- If you find a phone but no email, still report the phone.`,
+      },
+    ],
+  });
+  return extractText(resp);
+}
+
+// Scrape a single company — two-phase: crawl website, then search directories
 async function scrapeCompany(client, company, city, state) {
-  // Extract domain for targeted searches
   let domain = "";
   try {
     domain = new URL(company.website).hostname.replace("www.", "");
   } catch {}
 
   try {
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 8,
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `I need to find the contact information (email address and phone number) for this company:
+    // Phase 1: Crawl the company's own website
+    const phase1Text = await crawlWebsite(client, company, domain);
+    const phase1Data = parseScrapedData(phase1Text, company);
 
-Company: ${company.name}
-Website: ${company.website}
-Location: ${city}, ${state}
-
-You MUST perform multiple searches to find their contact details. Follow these steps IN ORDER:
-
-1. Search for: "${company.name} ${city} ${state} contact email phone"
-2. Search for: site:${domain} contact email
-3. Search for: "${company.name}" email address
-4. Search for: ${company.website}/contact OR ${company.website}/contact-us
-5. If still no email found, search for: "${domain}" email
-
-Look for email addresses and phone numbers in the search results. Many companies list their email and phone in search result snippets, Google My Business listings, directory pages, social media profiles, and review sites.
-
-IMPORTANT TIPS:
-- Look for email addresses in ALL search results, not just the company's own website
-- Check Google Maps/Business listings which often show phone and email
-- Check Facebook, Yelp, BBB, and other directory pages which list contact info
-- Phone numbers often appear as (XXX) XXX-XXXX or XXX-XXX-XXXX formats
-- Email addresses contain @ symbols - look carefully in all result text
-
-Reply with ONLY valid JSON:
-{
-  "name": "Official company name",
-  "website": "${company.website}",
-  "email": "email address found, or null if truly not findable",
-  "salesEmail": "sales-specific email if different and found, or null",
-  "phone": "phone number found, or null if truly not findable",
-  "specialties": ["from: Manufactured Homes, Modular Homes, Tiny Homes, Multifamily Modular, Commercial Modular, Panelized/Kit Builders"],
-  "sourceUrl": "the page URL where you found the contact info",
-  "confidence": "high or low"
-}
-
-CRITICAL RULES:
-- Do NOT guess or fabricate email addresses. Only report emails you actually see in search results.
-- Do NOT invent info@ or sales@ emails - only report what you find.
-- DO report emails found on directory sites, social media, or Google Business listings - those count.
-- If you find a phone number but no email, still report the phone number.`,
-        },
-      ],
-    });
-
-    let text = "";
-    for (const block of resp.content) {
-      if (block.type === "text") {
-        text += block.text;
-      }
+    // If Phase 1 found both email and phone, we're done
+    if (phase1Data && phase1Data.email && phase1Data.phone) {
+      return { ...phase1Data, status: "success" };
     }
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const data = JSON.parse(jsonMatch[0]);
-      // Validate email format if present
-      if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-        data.email = null;
-      }
-      if (
-        data.salesEmail &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.salesEmail)
-      ) {
-        data.salesEmail = null;
-      }
-      // Normalize phone number - strip non-digit chars for validation
-      if (data.phone) {
-        const digits = data.phone.replace(/\D/g, "");
-        if (digits.length < 7 || digits.length > 15) {
-          data.phone = null; // Invalid phone number
-        }
-      }
-      return { ...data, status: "success" };
-    }
-    return { ...company, status: "parse_error", email: null, phone: null, specialties: [], confidence: "low" };
+    // Phase 2: Search external directories for missing info
+    const phase2Text = await searchDirectories(client, company, domain, city, state);
+    const phase2Data = parseScrapedData(phase2Text, company);
+
+    // Merge: prefer phase1 data, fill gaps with phase2
+    const merged = {
+      name: (phase1Data && phase1Data.name) || (phase2Data && phase2Data.name) || company.name,
+      website: company.website,
+      email: (phase1Data && phase1Data.email) || (phase2Data && phase2Data.email) || null,
+      salesEmail: (phase1Data && phase1Data.salesEmail) || (phase2Data && phase2Data.salesEmail) || null,
+      phone: (phase1Data && phase1Data.phone) || (phase2Data && phase2Data.phone) || null,
+      specialties: (phase1Data && phase1Data.specialties && phase1Data.specialties.length > 0)
+        ? phase1Data.specialties
+        : (phase2Data && phase2Data.specialties) || [],
+      sourceUrl: (phase1Data && phase1Data.email && phase1Data.sourceUrl)
+        || (phase2Data && phase2Data.sourceUrl) || "",
+      confidence: (phase1Data && phase1Data.email && phase1Data.phone) ? "high"
+        : ((phase1Data && phase1Data.email) || (phase2Data && phase2Data.email)) ? "medium"
+        : "low",
+      status: "success",
+    };
+
+    return merged;
   } catch (err) {
     return {
       ...company,
@@ -304,7 +414,7 @@ app.post("/api/search", async (req, res) => {
     const { city, state } = location;
     send({
       type: "status",
-      message: `Great! I'll search for modular home builders in ${city}, ${state}. This might take 5-7 minutes...`,
+      message: `Great! I'll search for modular home builders in ${city}, ${state}. This will do a deep scrape of every website — might take 10-15 minutes for thorough results...`,
     });
 
     // Step 2: Search for companies
@@ -340,7 +450,7 @@ app.post("/api/search", async (req, res) => {
     });
 
     const results = [];
-    const batchSize = 3; // Process 3 at a time for speed
+    const batchSize = 2; // Process 2 at a time (each does 2-phase deep scrape)
 
     for (let i = 0; i < companies.length; i += batchSize) {
       const batch = companies.slice(i, i + batchSize);
