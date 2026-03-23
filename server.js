@@ -63,7 +63,7 @@ function extractText(resp) {
   return text;
 }
 
-// Parse location from user message
+// Parse location — always extracts the state/province for statewide search
 async function parseLocation(client, message) {
   const resp = await withRetry(() =>
     client.messages.create({
@@ -72,14 +72,13 @@ async function parseLocation(client, message) {
       messages: [
         {
           role: "user",
-          content: `Extract location from: "${message}"
+          content: `Extract the US state or Canadian province from: "${message}"
 
 Reply ONLY JSON:
-- City+state: {"city":"Denver","state":"Colorado","statewide":false,"understood":true}
-- State only: {"city":null,"state":"Florida","statewide":true,"understood":true}
+- Found: {"state":"Florida","understood":true}
 - Unknown: {"understood":false,"reason":"..."}
 
-Use full state names. For Canada use full province names.`,
+Always use full state names (e.g. "California" not "CA"). For Canada use full province names.`,
         },
       ],
     })
@@ -90,17 +89,17 @@ Use full state names. For Canada use full province names.`,
   return JSON.parse(jsonMatch[0]);
 }
 
-// Get cities for statewide search
-async function getCitiesForState(client, state) {
+// Get regions/areas within a state for broader coverage
+async function getRegionsForState(client, state) {
   const resp = await withRetry(() =>
     client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
+      max_tokens: 500,
       messages: [
         {
           role: "user",
-          content: `List top 15-25 cities in ${state} by population. Include major metros and regional centers.
-Reply ONLY JSON array: ["City1", "City2", ...]`,
+          content: `List 5-8 geographic regions or areas of ${state} (e.g. "Northern ${state}", "Southern ${state}", "Central ${state}", "${state} Panhandle", major metro areas).
+Reply ONLY JSON array: ["Region1", "Region2", ...]`,
         },
       ],
     })
@@ -113,6 +112,63 @@ Reply ONLY JSON array: ["City1", "City2", ...]`,
   } catch {
     return [];
   }
+}
+
+// Get neighboring states/provinces for wider surface area
+function getNeighboringStates(state) {
+  const neighbors = {
+    "Alabama": ["Georgia", "Florida", "Mississippi", "Tennessee"],
+    "Alaska": [],
+    "Arizona": ["New Mexico", "Nevada", "Utah", "California"],
+    "Arkansas": ["Missouri", "Oklahoma", "Texas", "Louisiana", "Mississippi", "Tennessee"],
+    "California": ["Oregon", "Nevada", "Arizona"],
+    "Colorado": ["Wyoming", "Nebraska", "Kansas", "Oklahoma", "New Mexico", "Utah"],
+    "Connecticut": ["New York", "Massachusetts", "Rhode Island"],
+    "Delaware": ["Maryland", "Pennsylvania", "New Jersey"],
+    "Florida": ["Georgia", "Alabama"],
+    "Georgia": ["Florida", "Alabama", "Tennessee", "North Carolina", "South Carolina"],
+    "Hawaii": [],
+    "Idaho": ["Montana", "Wyoming", "Utah", "Nevada", "Oregon", "Washington"],
+    "Illinois": ["Wisconsin", "Iowa", "Missouri", "Indiana", "Kentucky"],
+    "Indiana": ["Illinois", "Michigan", "Ohio", "Kentucky"],
+    "Iowa": ["Minnesota", "Wisconsin", "Illinois", "Missouri", "Nebraska", "South Dakota"],
+    "Kansas": ["Nebraska", "Missouri", "Oklahoma", "Colorado"],
+    "Kentucky": ["Indiana", "Ohio", "West Virginia", "Virginia", "Tennessee", "Missouri", "Illinois"],
+    "Louisiana": ["Texas", "Arkansas", "Mississippi"],
+    "Maine": ["New Hampshire"],
+    "Maryland": ["Pennsylvania", "Delaware", "Virginia", "West Virginia"],
+    "Massachusetts": ["New Hampshire", "Vermont", "New York", "Connecticut", "Rhode Island"],
+    "Michigan": ["Ohio", "Indiana", "Wisconsin"],
+    "Minnesota": ["Wisconsin", "Iowa", "South Dakota", "North Dakota"],
+    "Mississippi": ["Tennessee", "Alabama", "Louisiana", "Arkansas"],
+    "Missouri": ["Iowa", "Illinois", "Kentucky", "Tennessee", "Arkansas", "Oklahoma", "Kansas", "Nebraska"],
+    "Montana": ["North Dakota", "South Dakota", "Wyoming", "Idaho"],
+    "Nebraska": ["South Dakota", "Iowa", "Missouri", "Kansas", "Colorado", "Wyoming"],
+    "Nevada": ["Oregon", "Idaho", "Utah", "Arizona", "California"],
+    "New Hampshire": ["Maine", "Vermont", "Massachusetts"],
+    "New Jersey": ["New York", "Pennsylvania", "Delaware"],
+    "New Mexico": ["Colorado", "Oklahoma", "Texas", "Arizona", "Utah"],
+    "New York": ["Vermont", "Massachusetts", "Connecticut", "New Jersey", "Pennsylvania"],
+    "North Carolina": ["Virginia", "Tennessee", "Georgia", "South Carolina"],
+    "North Dakota": ["Montana", "South Dakota", "Minnesota"],
+    "Ohio": ["Michigan", "Indiana", "Kentucky", "West Virginia", "Pennsylvania"],
+    "Oklahoma": ["Kansas", "Missouri", "Arkansas", "Texas", "New Mexico", "Colorado"],
+    "Oregon": ["Washington", "Idaho", "Nevada", "California"],
+    "Pennsylvania": ["New York", "New Jersey", "Delaware", "Maryland", "West Virginia", "Ohio"],
+    "Rhode Island": ["Massachusetts", "Connecticut"],
+    "South Carolina": ["North Carolina", "Georgia"],
+    "South Dakota": ["North Dakota", "Minnesota", "Iowa", "Nebraska", "Wyoming", "Montana"],
+    "Tennessee": ["Kentucky", "Virginia", "North Carolina", "Georgia", "Alabama", "Mississippi", "Arkansas", "Missouri"],
+    "Texas": ["New Mexico", "Oklahoma", "Arkansas", "Louisiana"],
+    "Utah": ["Idaho", "Wyoming", "Colorado", "New Mexico", "Arizona", "Nevada"],
+    "Vermont": ["New Hampshire", "Massachusetts", "New York"],
+    "Virginia": ["Maryland", "West Virginia", "Kentucky", "Tennessee", "North Carolina"],
+    "Washington": ["Oregon", "Idaho"],
+    "West Virginia": ["Ohio", "Pennsylvania", "Maryland", "Virginia", "Kentucky"],
+    "Wisconsin": ["Michigan", "Minnesota", "Iowa", "Illinois"],
+    "Wyoming": ["Montana", "South Dakota", "Nebraska", "Colorado", "Utah", "Idaho"],
+  };
+  return neighbors[state] || [];
 }
 
 // Deduplicate by domain
@@ -154,6 +210,8 @@ async function runSearchQuery(client, query, extractionPrompt) {
 // DISCOVERY ENGINE — URL-only, no contact scraping
 // ============================================================
 
+const MAX_RESULTS = 100;
+
 async function discoverCompanies(client, city, state, statewide, onProgress) {
   const allCompanies = new Map();
   let totalSearches = 0;
@@ -184,7 +242,7 @@ async function discoverCompanies(client, city, state, statewide, onProgress) {
       if (newCount > 0) {
         onProgress({
           type: "search_progress",
-          message: `Found ${newCount} new companies (${allCompanies.size} total)`,
+          message: `+${newCount} new (${allCompanies.size} total)`,
           count: allCompanies.size,
         });
       }
@@ -201,41 +259,48 @@ async function discoverCompanies(client, city, state, statewide, onProgress) {
 
 Find ALL modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies in ${locationDesc}.
 
-Extract every company name and website URL. Use company's own website, not directory listings.
+Extract every company name + website URL. Use company's own website, not directory listings.
 
-Reply ONLY JSON array: [{"name": "Company Name", "website": "https://..."}]`;
+Reply ONLY JSON array: [{"name": "Company Name", "website": "https://..."}]
+Include EVERY company you find. The more the better.`;
   }
 
-  // ---- ROUND 1: Broad searches ----
-  onProgress({ type: "discovery_round", round: 1, message: `Searching ${state}...` });
+  // ---- ROUND 1: Broad state-level searches ----
+  onProgress({ type: "discovery_round", round: 1, message: `Broad search across ${state}...` });
 
   const stateQueries = [
-    `all modular home builders in ${state}`,
-    `all manufactured home dealers in ${state}`,
+    `all modular home builders in ${state} complete list`,
+    `all manufactured home dealers in ${state} directory`,
     `prefab kit home builders ${state}`,
-    `tiny home builders ${state}`,
-    `mobile home dealers ${state}`,
-    `commercial modular buildings ${state}`,
-    `multifamily modular construction ${state}`,
+    `tiny home builders companies ${state}`,
+    `mobile home dealers ${state} list`,
+    `commercial modular construction companies ${state}`,
+    `multifamily modular builders ${state}`,
     `manufactured home sales centers ${state}`,
+    `modular home companies ${state} directory list`,
+    `factory built homes ${state} dealers retailers`,
   ];
 
   if (isCanadian) {
-    stateQueries.push(`modular home builders ${state} Canada list`);
+    stateQueries.push(
+      `modular home builders ${state} Canada complete list`,
+      `prefab homes ${state} Canada companies`,
+    );
   }
 
   for (const q of stateQueries) {
     await search(q, makePrompt(q, state), "Round 1");
   }
 
-  // ---- ROUND 2: Directory searches ----
-  onProgress({ type: "discovery_round", round: 2, message: `Searching directories for ${state}...` });
+  // ---- ROUND 2: Directory & association searches ----
+  onProgress({ type: "discovery_round", round: 2, message: `Directory searches for ${state}...` });
 
   const directoryQueries = [
     `manufactured home dealers ${state} site:mhvillage.com`,
     `modular home builders ${state} site:houzz.com OR site:buildzoom.com`,
     `${state} manufactured housing association members list`,
-    `manufactured home dealers ${state} site:yellowpages.com OR site:bbb.org`,
+    `modular home builders ${state} site:yellowpages.com OR site:bbb.org`,
+    `"modular homes" "${state}" site:modularhomes.com OR site:prefabreviews.com`,
   ];
 
   for (const q of directoryQueries) {
@@ -243,57 +308,78 @@ Reply ONLY JSON array: [{"name": "Company Name", "website": "https://..."}]`;
   }
 
   // ---- ROUND 3: Manufacturer dealer networks ----
-  onProgress({ type: "discovery_round", round: 3, message: `Searching dealer networks in ${state}...` });
+  onProgress({ type: "discovery_round", round: 3, message: `Dealer networks in ${state}...` });
 
   const dealerQueries = [
-    `Clayton Homes OR Champion Homes OR Cavco dealers ${state}`,
+    `Clayton Homes OR Champion Homes OR Cavco dealers locations ${state}`,
     `Palm Harbor OR Fleetwood OR Skyline Champion dealers ${state}`,
-    `Jacobsen OR Commodore OR Franklin OR TRU Homes dealers ${state}`,
+    `Jacobsen OR Commodore OR Franklin OR TRU Homes OR Deer Valley dealers ${state}`,
+    `Nobility Homes OR Adventure Homes OR Sunshine Homes dealers ${state}`,
   ];
 
   for (const q of dealerQueries) {
     await search(q, makePrompt(q, state), "Round 3");
   }
 
-  // ---- ROUND 4: City-by-city ----
-  let cities = [];
-  if (statewide) {
-    onProgress({ type: "discovery_round", round: 4, message: `Searching cities in ${state}...` });
-    cities = await getCitiesForState(client, state);
-    onProgress({
-      type: "search_progress",
-      message: `Searching ${cities.length} cities in ${state}`,
-      count: allCompanies.size,
-    });
-  } else {
-    cities = [city];
-  }
+  // ---- ROUND 4: Regional searches within the state ----
+  onProgress({ type: "discovery_round", round: 4, message: `Searching regions of ${state}...` });
 
-  for (let ci = 0; ci < cities.length; ci++) {
-    const cityName = cities[ci];
-    const q = `modular OR manufactured home builders dealers ${cityName} ${state}`;
-    await search(q, makePrompt(q, `${cityName}, ${state}`), `Cities [${ci + 1}/${cities.length}]`);
-  }
-
-  // ---- ROUND 5: Final sweep ----
-  onProgress({ type: "discovery_round", round: 5, message: `Final sweep for ${state}...` });
-
-  const finalQueries = [
-    `"modular home" OR "manufactured home" OR "prefab" builders ${state} "contact us"`,
-    `panelized home builders ${state} OR kit home builders ${state}`,
-  ];
-
-  for (const q of finalQueries) {
-    await search(q, makePrompt(q, state), "Round 5");
-  }
-
+  const regions = await getRegionsForState(client, state);
   onProgress({
     type: "search_progress",
-    message: `Discovery complete! Found ${allCompanies.size} unique companies in ${totalSearches} searches.`,
+    message: `Searching ${regions.length} regions in ${state}`,
     count: allCompanies.size,
   });
 
-  return Array.from(allCompanies.values());
+  for (let ri = 0; ri < regions.length; ri++) {
+    const region = regions[ri];
+    const q = `modular OR manufactured OR prefab home builders dealers ${region} ${state}`;
+    await search(q, makePrompt(q, `${region}, ${state}`), `Regions [${ri + 1}/${regions.length}]`);
+  }
+
+  // ---- ROUND 5: Neighboring states for wider coverage ----
+  const neighbors = isCanadian ? [] : getNeighboringStates(state);
+  if (neighbors.length > 0) {
+    // Pick up to 4 neighbors to keep token budget reasonable
+    const searchNeighbors = neighbors.slice(0, 4);
+    onProgress({ type: "discovery_round", round: 5, message: `Searching neighboring states: ${searchNeighbors.join(", ")}...` });
+
+    for (const neighbor of searchNeighbors) {
+      const queries = [
+        `modular home builders ${neighbor} complete list`,
+        `manufactured home dealers ${neighbor} directory`,
+        `tiny home OR prefab OR kit home builders ${neighbor}`,
+      ];
+      for (const q of queries) {
+        await search(q, makePrompt(q, neighbor), `Neighbor: ${neighbor}`);
+      }
+    }
+  }
+
+  // ---- ROUND 6: Final sweep — alternate terms ----
+  onProgress({ type: "discovery_round", round: 6, message: `Final sweep...` });
+
+  const finalQueries = [
+    `"modular home" OR "manufactured home" builders ${state} "contact us" -site:yelp.com`,
+    `panelized home builders ${state} OR kit home builders ${state}`,
+    `ADU builders ${state} modular accessory dwelling unit`,
+    `steel frame modular homes ${state} OR SIP panel homes ${state}`,
+  ];
+
+  for (const q of finalQueries) {
+    await search(q, makePrompt(q, state), "Round 6");
+  }
+
+  const total = allCompanies.size;
+  onProgress({
+    type: "search_progress",
+    message: `Discovery complete! Found ${total} unique companies in ${totalSearches} searches.`,
+    count: total,
+  });
+
+  // Return up to MAX_RESULTS
+  const all = Array.from(allCompanies.values());
+  return all.slice(0, MAX_RESULTS);
 }
 
 // ============================================================
@@ -341,27 +427,26 @@ app.post("/api/search", async (req, res) => {
       return res.end();
     }
 
-    const { city, state, statewide } = location;
-    const locationDesc = statewide ? state : `${city}, ${state}`;
+    const { state } = location;
 
     send({
       type: "status",
-      message: `Great! I'll search for modular home builders in ${locationDesc}. This might take 5-7 minutes...`,
+      message: `Great! I'll search for modular home builders across ${state} and neighboring states. This might take 5-10 minutes...`,
     });
 
     const startTime = Date.now();
     send({
       type: "phase",
       phase: "discovery",
-      message: `Starting web search for modular home builders in ${locationDesc}...`,
+      message: `Starting web search across ${state}...`,
     });
 
-    const companies = await discoverCompanies(client, city, state, statewide || false, send);
+    const companies = await discoverCompanies(client, null, state, true, send);
 
     if (companies.length === 0) {
       send({
         type: "error",
-        message: `No modular home builders found in ${locationDesc}. Try a different location.`,
+        message: `No modular home builders found in ${state}. Try a different state or province.`,
       });
       send({ type: "done" });
       clearInterval(heartbeat);
@@ -376,9 +461,9 @@ app.post("/api/search", async (req, res) => {
 
     send({
       type: "results",
-      city: city || "(statewide)",
+      city: "(statewide)",
       state,
-      statewide: statewide || false,
+      statewide: true,
       totalCompanies: companies.length,
       timeElapsed: timeStr,
       results: companies.map((c) => ({

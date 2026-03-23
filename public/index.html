@@ -226,12 +226,12 @@
   <div class="chat-messages" id="chatMessages">
     <div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Search for modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies. Returns company names and website URLs.</p>
+      <p>Search by state or province. Finds modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies. Returns up to 100 URLs per search.</p>
       <div class="example-queries">
-        <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
+        <button class="example-query" onclick="sendExample(this)">Find all modular home companies in Florida</button>
         <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
-        <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
+        <button class="example-query" onclick="sendExample(this)">Modular home builders in Oklahoma</button>
+        <button class="example-query" onclick="sendExample(this)">Search for builders in British Columbia</button>
       </div>
     </div>
   </div>
@@ -239,34 +239,31 @@
 
 <div class="input-area">
   <div class="input-wrap">
-    <textarea id="userInput" rows="1" placeholder="Ask me about modular home builders..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+    <textarea id="userInput" rows="1" placeholder="Enter a state or province (e.g. 'Texas', 'Florida', 'Ontario')..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
   </div>
-  <div class="input-hint">Press Enter to send. Searches take 5-7 minutes per city. URLs only — fast and token-efficient.</div>
+  <div class="input-hint">Press Enter to send. Searches by state/province + neighbors. Returns up to 100 URLs. Takes 5-10 minutes.</div>
 </div>
 
 <div class="modal-overlay" id="helpModal">
   <div class="modal">
     <button class="modal-close" onclick="closeHelp()">&#10005;</button>
     <h2>&#127968; How to Use</h2>
-    <h3>Example Queries</h3>
-    <ul>
-      <li>"Find all modular home companies in Florida" (statewide)</li>
-      <li>"Every modular home builder in Texas" (statewide)</li>
-      <li>"Find builders in Denver, Colorado" (city)</li>
-    </ul>
+    <h3>How to Search</h3>
+    <p>Enter any US state or Canadian province. The app searches that state plus neighboring states for maximum coverage.</p>
     <h3>What It Finds</h3>
-    <p>Company names and website URLs for: modular homes, manufactured homes, prefab/kit builders, tiny homes, commercial modular, and multifamily modular companies.</p>
-    <h3>How It Works</h3>
+    <p>Up to 100 company URLs for: modular homes, manufactured homes, prefab/kit builders, tiny homes, commercial modular, and multifamily modular.</p>
+    <h3>Search Rounds</h3>
     <ul>
-      <li><strong>Round 1:</strong> State-wide keyword searches</li>
-      <li><strong>Round 2:</strong> Industry directory searches (MHVillage, Houzz, etc.)</li>
+      <li><strong>Round 1:</strong> Broad state-level searches (10 queries)</li>
+      <li><strong>Round 2:</strong> Industry directories (MHVillage, Houzz, BBB, etc.)</li>
       <li><strong>Round 3:</strong> Manufacturer dealer networks (Clayton, Champion, etc.)</li>
-      <li><strong>Round 4:</strong> City-by-city searches</li>
-      <li><strong>Round 5:</strong> Final sweep</li>
+      <li><strong>Round 4:</strong> Regional searches within the state</li>
+      <li><strong>Round 5:</strong> Neighboring states</li>
+      <li><strong>Round 6:</strong> Final sweep (ADUs, SIP, panelized, etc.)</li>
     </ul>
     <h3>Export</h3>
-    <p>Results can be exported as CSV or JSON. Each row contains company name and website URL.</p>
+    <p>Download results as CSV or JSON. Each row has company name + website URL.</p>
   </div>
 </div>
 
@@ -325,12 +322,12 @@
   function clearChat() {
     document.getElementById("chatMessages").innerHTML = `<div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Search for modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies.</p>
+      <p>Search by state or province. Returns up to 100 URLs per search.</p>
       <div class="example-queries">
-        <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
+        <button class="example-query" onclick="sendExample(this)">Find all modular home companies in Florida</button>
         <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
-        <button class="example-query" onclick="sendExample(this)">Find modular home builders in Denver, Colorado</button>
-        <button class="example-query" onclick="sendExample(this)">Search for tiny home builders in Vancouver, BC</button>
+        <button class="example-query" onclick="sendExample(this)">Modular home builders in Oklahoma</button>
+        <button class="example-query" onclick="sendExample(this)">Search for builders in British Columbia</button>
       </div>
     </div>`;
     currentResults = null;
@@ -486,9 +483,7 @@
               progressDiv = null;
               currentResults = data;
 
-              const locLabel = data.statewide
-                ? `${escapeHtml(data.state)} (statewide)`
-                : `${escapeHtml(data.city)}, ${escapeHtml(data.state)}`;
+              const locLabel = `${escapeHtml(data.state)} + neighbors`;
 
               const summaryHtml = `<div class="summary-card">
                 <h3>&#10003; Search Complete!</h3>
@@ -508,7 +503,7 @@
                   <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV (${data.totalCompanies} URLs)</button>
                   <button class="action-btn primary" onclick="downloadJSON()">&#128190; Download JSON</button>
                   ${data.totalCompanies > previewCount ? `<button class="action-btn" onclick="showFullTable()">&#128200; View All ${data.totalCompanies} Results</button>` : ""}
-                  <button class="action-btn" onclick="clearChat()">&#128260; Search Another Location</button>
+                  <button class="action-btn" onclick="clearChat()">&#128260; Search Another State</button>
                 </div>`;
               addMessage(actionsHtml, "bot", true);
               break;
