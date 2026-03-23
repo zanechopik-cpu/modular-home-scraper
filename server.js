@@ -63,33 +63,49 @@ function extractText(resp) {
   return text;
 }
 
-// Parse location — always extracts the state/province for statewide search
-async function parseLocation(client, message) {
-  const resp = await withRetry(() =>
-    client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: `Extract the US state or Canadian province from this user message: "${message}"
+// Parse location — deterministic state/province lookup (no LLM needed)
+const STATE_ABBREVS = {
+  "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+  "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+  "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+  "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+  "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+  "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey",
+  "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+  "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+  "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+  "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+};
 
-The user only needs to provide a state or province — no city is needed. If they mention just a state name (like "Utah" or "Texas"), that is perfectly valid.
+const ALL_STATES = Object.values(STATE_ABBREVS);
 
-Reply ONLY JSON:
-- Found: {"state":"Florida","understood":true}
-- Not a valid US state or Canadian province: {"understood":false,"reason":"Please enter a US state or Canadian province."}
+const CANADIAN_PROVINCES = [
+  "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+  "Newfoundland and Labrador", "Nova Scotia", "Ontario", "Prince Edward Island",
+  "Quebec", "Saskatchewan", "Northwest Territories", "Nunavut", "Yukon",
+];
 
-Always use full state names (e.g. "California" not "CA"). For Canada use full province names.
-A state/province name alone is a complete, valid input.`,
-        },
-      ],
-    })
-  );
-  const text = resp.content[0].text.trim();
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { understood: false, reason: "Could not parse response" };
-  return JSON.parse(jsonMatch[0]);
+const ALL_LOCATIONS = [...ALL_STATES, ...CANADIAN_PROVINCES];
+
+function parseLocation(message) {
+  const input = message.trim().toLowerCase().replace(/[^a-z\s]/g, "");
+
+  // Check abbreviations first (e.g. "UT", "CA", "NY")
+  const upperInput = message.trim().toUpperCase().replace(/[^A-Z]/g, "");
+  if (STATE_ABBREVS[upperInput]) {
+    return { state: STATE_ABBREVS[upperInput], understood: true };
+  }
+
+  // Check full state/province names (exact or contained in message)
+  // Sort by length descending so "West Virginia" matches before "Virginia"
+  const sorted = ALL_LOCATIONS.slice().sort((a, b) => b.length - a.length);
+  for (const loc of sorted) {
+    if (input.includes(loc.toLowerCase())) {
+      return { state: loc, understood: true };
+    }
+  }
+
+  return { understood: false, reason: "Please enter a US state or Canadian province (e.g. 'Texas', 'Florida', 'Ontario')." };
 }
 
 // Get regions/areas within a state for broader coverage
@@ -219,12 +235,7 @@ async function discoverCompanies(client, state, onProgress) {
   const allCompanies = new Map();
   let totalSearches = 0;
 
-  const canadianProvinces = [
-    "Alberta", "British Columbia", "Manitoba", "New Brunswick",
-    "Newfoundland and Labrador", "Nova Scotia", "Ontario", "Prince Edward Island",
-    "Quebec", "Saskatchewan", "Northwest Territories", "Nunavut", "Yukon",
-  ];
-  const isCanadian = canadianProvinces.some(
+  const isCanadian = CANADIAN_PROVINCES.some(
     (p) => state.toLowerCase() === p.toLowerCase()
   );
 
@@ -418,7 +429,7 @@ app.post("/api/search", async (req, res) => {
     const client = getClient();
 
     send({ type: "status", message: "Understanding your request..." });
-    const location = await parseLocation(client, message);
+    const location = parseLocation(message);
 
     if (!location.understood) {
       send({
