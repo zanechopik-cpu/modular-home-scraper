@@ -371,7 +371,7 @@
       [r.name, r.website].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
-    const loc = currentResults.statewide ? currentResults.state : `${currentResults.city}_${currentResults.state}`;
+    const loc = currentResults.state;
     downloadBlob(blob, `${loc}_modular_homes_${dateStr()}.csv`);
     addMessage(`Downloaded CSV with ${currentResults.results.length} companies.`, "bot", true);
   }
@@ -379,7 +379,7 @@
   function downloadJSON() {
     if (!currentResults) return;
     const blob = new Blob([JSON.stringify(currentResults.results, null, 2)], { type: "application/json" });
-    const loc = currentResults.statewide ? currentResults.state : `${currentResults.city}_${currentResults.state}`;
+    const loc = currentResults.state;
     downloadBlob(blob, `${loc}_modular_homes_${dateStr()}.json`);
     addMessage(`Downloaded JSON with ${currentResults.results.length} companies.`, "bot", true);
   }

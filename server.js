@@ -72,13 +72,16 @@ async function parseLocation(client, message) {
       messages: [
         {
           role: "user",
-          content: `Extract the US state or Canadian province from: "${message}"
+          content: `Extract the US state or Canadian province from this user message: "${message}"
+
+The user only needs to provide a state or province — no city is needed. If they mention just a state name (like "Utah" or "Texas"), that is perfectly valid.
 
 Reply ONLY JSON:
 - Found: {"state":"Florida","understood":true}
-- Unknown: {"understood":false,"reason":"..."}
+- Not a valid US state or Canadian province: {"understood":false,"reason":"Please enter a US state or Canadian province."}
 
-Always use full state names (e.g. "California" not "CA"). For Canada use full province names.`,
+Always use full state names (e.g. "California" not "CA"). For Canada use full province names.
+A state/province name alone is a complete, valid input.`,
         },
       ],
     })
@@ -212,7 +215,7 @@ async function runSearchQuery(client, query, extractionPrompt) {
 
 const MAX_RESULTS = 100;
 
-async function discoverCompanies(client, city, state, statewide, onProgress) {
+async function discoverCompanies(client, state, onProgress) {
   const allCompanies = new Map();
   let totalSearches = 0;
 
@@ -420,7 +423,7 @@ app.post("/api/search", async (req, res) => {
     if (!location.understood) {
       send({
         type: "error",
-        message: location.reason || "I couldn't understand that location. Try 'Find modular home builders in Florida' or 'builders in Denver, Colorado'.",
+        message: location.reason || "I couldn't understand that location. Try entering a US state (e.g. 'Florida', 'Texas') or Canadian province (e.g. 'Ontario').",
       });
       send({ type: "done" });
       clearInterval(heartbeat);
@@ -441,7 +444,7 @@ app.post("/api/search", async (req, res) => {
       message: `Starting web search across ${state}...`,
     });
 
-    const companies = await discoverCompanies(client, null, state, true, send);
+    const companies = await discoverCompanies(client, state, send);
 
     if (companies.length === 0) {
       send({
@@ -461,9 +464,7 @@ app.post("/api/search", async (req, res) => {
 
     send({
       type: "results",
-      city: "(statewide)",
       state,
-      statewide: true,
       totalCompanies: companies.length,
       timeElapsed: timeStr,
       results: companies.map((c) => ({
