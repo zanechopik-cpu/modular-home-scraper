@@ -17,8 +17,6 @@
       --accent: #2563eb;
       --accent-hover: #1d4ed8;
       --success: #16a34a;
-      --warning: #ea580c;
-      --error: #dc2626;
       --shadow: rgba(0,0,0,0.08);
       --radius: 12px;
     }
@@ -44,7 +42,6 @@
       transition: background 0.3s, color 0.3s;
     }
 
-    /* Header */
     .header {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
@@ -54,11 +51,7 @@
       justify-content: space-between;
       flex-shrink: 0;
     }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
     .header h1 {
       font-size: 18px;
       font-weight: 700;
@@ -66,14 +59,8 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .header-logo {
-      font-size: 24px;
-    }
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
+    .header-logo { font-size: 24px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
     .btn-icon {
       background: none;
       border: 1px solid var(--border);
@@ -87,84 +74,24 @@
       align-items: center;
       gap: 4px;
     }
-    .btn-icon:hover {
-      background: var(--bg-primary);
-      color: var(--text-primary);
-    }
+    .btn-icon:hover { background: var(--bg-primary); color: var(--text-primary); }
 
-    /* Chat area */
-    .chat-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      scroll-behavior: smooth;
-    }
-    .chat-messages {
-      max-width: 800px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .message {
-      display: flex;
-      flex-direction: column;
-      max-width: 85%;
-      animation: fadeIn 0.3s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .message.user {
-      align-self: flex-end;
-    }
-    .message.bot {
-      align-self: flex-start;
-    }
-    .message-bubble {
-      padding: 12px 16px;
-      border-radius: var(--radius);
-      line-height: 1.5;
-      font-size: 14px;
-      word-wrap: break-word;
-    }
-    .message.user .message-bubble {
-      background: var(--bg-user-msg);
-      border-bottom-right-radius: 4px;
-    }
-    .message.bot .message-bubble {
-      background: var(--bg-bot-msg);
-      border-bottom-left-radius: 4px;
-    }
-    .message-time {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-      padding: 0 4px;
-    }
+    .chat-container { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
+    .chat-messages { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .message { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { align-self: flex-end; }
+    .message.bot { align-self: flex-start; }
+    .message-bubble { padding: 12px 16px; border-radius: var(--radius); line-height: 1.5; font-size: 14px; word-wrap: break-word; }
+    .message.user .message-bubble { background: var(--bg-user-msg); border-bottom-right-radius: 4px; }
+    .message.bot .message-bubble { background: var(--bg-bot-msg); border-bottom-left-radius: 4px; }
+    .message-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; padding: 0 4px; }
     .message.user .message-time { text-align: right; }
 
-    /* Welcome message */
-    .welcome {
-      text-align: center;
-      padding: 40px 20px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    .welcome h2 {
-      font-size: 24px;
-      margin-bottom: 8px;
-    }
-    .welcome p {
-      color: var(--text-secondary);
-      margin-bottom: 24px;
-    }
-    .example-queries {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .welcome { text-align: center; padding: 40px 20px; max-width: 600px; margin: 0 auto; }
+    .welcome h2 { font-size: 24px; margin-bottom: 8px; }
+    .welcome p { color: var(--text-secondary); margin-bottom: 24px; }
+    .example-queries { display: flex; flex-direction: column; gap: 8px; }
     .example-query {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -176,28 +103,11 @@
       color: var(--text-primary);
       transition: all 0.2s;
     }
-    .example-query:hover {
-      border-color: var(--accent);
-      background: var(--bg-user-msg);
-    }
+    .example-query:hover { border-color: var(--accent); background: var(--bg-user-msg); }
 
-    /* Progress bar */
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      margin: 8px 0;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), #7c3aed);
-      border-radius: 3px;
-      transition: width 0.3s;
-    }
+    .progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #7c3aed); border-radius: 3px; transition: width 0.3s; }
 
-    /* Discovery round badge */
     .round-badge {
       display: inline-block;
       background: var(--accent);
@@ -209,62 +119,21 @@
       margin-bottom: 4px;
     }
 
-    /* Results table */
-    .results-table-wrap {
-      overflow-x: auto;
-      margin: 12px 0;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    .results-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      min-width: 600px;
-    }
+    .results-table-wrap { overflow-x: auto; margin: 12px 0; border-radius: 8px; border: 1px solid var(--border); }
+    .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .results-table th {
       background: var(--accent);
       color: white;
       padding: 10px 12px;
       text-align: left;
       font-weight: 600;
-      cursor: pointer;
-      user-select: none;
       white-space: nowrap;
     }
-    .results-table th:hover {
-      background: var(--accent-hover);
-    }
-    .results-table td {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    .results-table tr:nth-child(even) {
-      background: var(--bg-primary);
-    }
-    .results-table tr:hover {
-      background: var(--bg-user-msg);
-    }
-    .verified { color: var(--success); font-weight: 600; }
-    .not-found { color: var(--text-secondary); font-style: italic; }
-    .specialty-tag {
-      display: inline-block;
-      background: var(--accent);
-      color: white;
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin: 1px;
-    }
+    .results-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .results-table tr:nth-child(even) { background: var(--bg-primary); }
+    .results-table tr:hover { background: var(--bg-user-msg); }
 
-    /* Action buttons */
-    .action-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 12px 0;
-    }
+    .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .action-btn {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -278,20 +147,10 @@
       align-items: center;
       gap: 6px;
     }
-    .action-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .action-btn.primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    .action-btn.primary:hover {
-      background: var(--accent-hover);
-    }
+    .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .action-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .action-btn.primary:hover { background: var(--accent-hover); }
 
-    /* Summary card */
     .summary-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -299,188 +158,48 @@
       padding: 16px;
       margin: 8px 0;
     }
-    .summary-card h3 {
-      color: var(--success);
-      margin-bottom: 8px;
-      font-size: 16px;
-    }
-    .summary-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .stat {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-    }
+    .summary-card h3 { color: var(--success); margin-bottom: 8px; font-size: 16px; }
+    .summary-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { display: flex; justify-content: space-between; font-size: 13px; }
     .stat-label { color: var(--text-secondary); }
     .stat-value { font-weight: 600; }
 
-    /* Typing indicator */
-    .typing-indicator {
-      display: flex;
-      gap: 4px;
-      padding: 8px 0;
-    }
-    .typing-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--text-secondary);
-      border-radius: 50%;
-      animation: bounce 1.4s infinite ease-in-out;
-    }
+    .typing-indicator { display: flex; gap: 4px; padding: 8px 0; }
+    .typing-dot { width: 8px; height: 8px; background: var(--text-secondary); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-      40% { transform: scale(1); opacity: 1; }
-    }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 
-    /* Input area */
-    .input-area {
-      border-top: 1px solid var(--border);
-      padding: 16px 20px;
-      background: var(--bg-secondary);
-      flex-shrink: 0;
-    }
-    .input-wrap {
-      max-width: 800px;
-      margin: 0 auto;
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
+    .input-area { border-top: 1px solid var(--border); padding: 16px 20px; background: var(--bg-secondary); flex-shrink: 0; }
+    .input-wrap { max-width: 800px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
     .input-wrap textarea {
-      flex: 1;
-      resize: none;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 14px;
-      font-family: inherit;
-      background: var(--bg-input);
-      color: var(--text-primary);
-      outline: none;
-      min-height: 44px;
-      max-height: 120px;
-      transition: border-color 0.2s;
+      flex: 1; resize: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px;
+      font-size: 14px; font-family: inherit; background: var(--bg-input); color: var(--text-primary);
+      outline: none; min-height: 44px; max-height: 120px; transition: border-color 0.2s;
     }
-    .input-wrap textarea:focus {
-      border-color: var(--accent);
-    }
+    .input-wrap textarea:focus { border-color: var(--accent); }
     .send-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      border: none;
-      background: var(--accent);
-      color: white;
-      cursor: pointer;
-      font-size: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s;
-      flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 12px; border: none; background: var(--accent);
+      color: white; cursor: pointer; font-size: 18px; display: flex; align-items: center;
+      justify-content: center; transition: background 0.2s; flex-shrink: 0;
     }
     .send-btn:hover { background: var(--accent-hover); }
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .input-hint {
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 6px;
-      max-width: 800px;
-      margin-left: auto;
-      margin-right: auto;
-    }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .input-hint { text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 6px; max-width: 800px; margin-left: auto; margin-right: auto; }
 
-    /* Help modal */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
     .modal-overlay.show { display: flex; }
-    .modal {
-      background: var(--bg-secondary);
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
+    .modal { background: var(--bg-secondary); border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
     .modal h2 { margin-bottom: 16px; }
     .modal h3 { margin: 16px 0 8px; font-size: 14px; color: var(--accent); }
     .modal p, .modal li { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
     .modal ul { padding-left: 20px; }
-    .modal-close {
-      float: right;
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: var(--text-secondary);
-    }
+    .modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
 
-    /* Filter dropdown */
-    .filter-wrap {
-      position: relative;
-      display: inline-block;
-    }
-    .filter-dropdown {
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px;
-      display: none;
-      min-width: 200px;
-      box-shadow: 0 4px 12px var(--shadow);
-      z-index: 10;
-    }
-    .filter-dropdown.show { display: block; }
-    .filter-option {
-      padding: 6px 10px;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    .filter-option:hover { background: var(--bg-primary); }
-
-    /* View toggle for full table */
-    .full-table-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
+    .full-table-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
     .full-table-overlay.show { display: flex; }
-    .full-table-modal {
-      background: var(--bg-secondary);
-      border-radius: 16px;
-      padding: 24px;
-      width: 95%;
-      max-width: 1200px;
-      max-height: 85vh;
-      overflow: auto;
-    }
+    .full-table-modal { background: var(--bg-secondary); border-radius: 16px; padding: 24px; width: 95%; max-width: 900px; max-height: 85vh; overflow: auto; }
 
-    /* Responsive */
     @media (max-width: 640px) {
       .header h1 { font-size: 15px; }
       .message { max-width: 95%; }
@@ -491,7 +210,6 @@
 </head>
 <body>
 
-<!-- Header -->
 <div class="header">
   <div class="header-left">
     <span class="header-logo">&#127968;</span>
@@ -504,13 +222,11 @@
   </div>
 </div>
 
-<!-- Chat -->
 <div class="chat-container" id="chatContainer">
   <div class="chat-messages" id="chatMessages">
-    <!-- Welcome -->
     <div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Search for modular, manufactured, prefab, or tiny home builders by city or entire state. I'll exhaustively search the web, industry directories, and manufacturer dealer networks to find every company possible.</p>
+      <p>Search for modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies. Returns company names and website URLs.</p>
       <div class="example-queries">
         <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
         <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
@@ -521,51 +237,39 @@
   </div>
 </div>
 
-<!-- Input -->
 <div class="input-area">
   <div class="input-wrap">
-    <textarea id="userInput" rows="1" placeholder="Try 'Find all modular home builders in Florida' or 'builders in Denver, Colorado'..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+    <textarea id="userInput" rows="1" placeholder="Ask me about modular home builders..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
   </div>
-  <div class="input-hint">Press Enter to send. Statewide searches can take 1-3 hours and find 50-150+ companies. City searches take 15-30 min. No time limits.</div>
+  <div class="input-hint">Press Enter to send. Searches take 5-7 minutes per city. URLs only — fast and token-efficient.</div>
 </div>
 
-<!-- Help Modal -->
 <div class="modal-overlay" id="helpModal">
   <div class="modal">
     <button class="modal-close" onclick="closeHelp()">&#10005;</button>
     <h2>&#127968; How to Use</h2>
     <h3>Example Queries</h3>
     <ul>
-      <li>"Find all modular and manufactured home companies in Florida" (statewide)</li>
+      <li>"Find all modular home companies in Florida" (statewide)</li>
       <li>"Every modular home builder in Texas" (statewide)</li>
-      <li>"Find modular home builders in Denver, Colorado" (city)</li>
-      <li>"Any prefab builders in Vancouver, British Columbia?" (city)</li>
+      <li>"Find builders in Denver, Colorado" (city)</li>
     </ul>
-    <h3>How Discovery Works</h3>
-    <p>The app runs 5 discovery rounds to find every possible company:</p>
+    <h3>What It Finds</h3>
+    <p>Company names and website URLs for: modular homes, manufactured homes, prefab/kit builders, tiny homes, commercial modular, and multifamily modular companies.</p>
+    <h3>How It Works</h3>
     <ul>
-      <li><strong>Round 1:</strong> State-wide keyword searches (12+ queries)</li>
-      <li><strong>Round 2:</strong> Industry directory searches (modularhomes.com, MHVillage, Houzz, etc.)</li>
-      <li><strong>Round 3:</strong> Manufacturer dealer networks (Clayton, Champion, Cavco, etc.)</li>
-      <li><strong>Round 4:</strong> City-by-city searches (every city in the state)</li>
-      <li><strong>Round 5:</strong> Deep sweep with alternative search strategies</li>
+      <li><strong>Round 1:</strong> State-wide keyword searches</li>
+      <li><strong>Round 2:</strong> Industry directory searches (MHVillage, Houzz, etc.)</li>
+      <li><strong>Round 3:</strong> Manufacturer dealer networks (Clayton, Champion, etc.)</li>
+      <li><strong>Round 4:</strong> City-by-city searches</li>
+      <li><strong>Round 5:</strong> Final sweep</li>
     </ul>
-    <h3>Contact Scraping</h3>
-    <p>Every company gets a 3-phase deep scrape: website crawl, directory search, then a creative deep hunt. Emails and phones are ONLY extracted from actual sources — never guessed.</p>
-    <h3>Time &amp; Limits</h3>
-    <ul>
-      <li>Statewide searches: 1-3 hours, finds 50-150+ companies</li>
-      <li>City searches: 15-30 minutes, finds 10-40 companies</li>
-      <li>No time limits — the app runs until every company is found and scraped</li>
-      <li>Results can be exported as CSV or JSON</li>
-    </ul>
-    <h3>Setup</h3>
-    <p>Requires ANTHROPIC_API_KEY environment variable. Get yours at <strong>console.anthropic.com</strong>.</p>
+    <h3>Export</h3>
+    <p>Results can be exported as CSV or JSON. Each row contains company name and website URL.</p>
   </div>
 </div>
 
-<!-- Full Table Modal -->
 <div class="full-table-overlay" id="fullTableModal">
   <div class="full-table-modal">
     <button class="modal-close" onclick="closeFullTable()" style="float:right; font-size:20px; background:none; border:none; cursor:pointer; color:var(--text-secondary)">&#10005;</button>
@@ -577,8 +281,6 @@
 <script>
   let currentResults = null;
   let isSearching = false;
-  let sortCol = null;
-  let sortDir = 1;
 
   function toggleDark() {
     document.body.classList.toggle("dark");
@@ -588,31 +290,11 @@
   }
   if (localStorage.getItem("darkMode") === "true") toggleDark();
 
-  function autoResize(el) {
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-  }
-
-  function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  function sendExample(btn) {
-    document.getElementById("userInput").value = btn.textContent;
-    sendMessage();
-  }
-
-  function scrollToBottom() {
-    const c = document.getElementById("chatContainer");
-    c.scrollTop = c.scrollHeight;
-  }
-
-  function timeNow() {
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
+  function autoResize(el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }
+  function handleKeyDown(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+  function sendExample(btn) { document.getElementById("userInput").value = btn.textContent; sendMessage(); }
+  function scrollToBottom() { const c = document.getElementById("chatContainer"); c.scrollTop = c.scrollHeight; }
+  function timeNow() { return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
 
   function addMessage(text, type, html) {
     const welcome = document.getElementById("welcomeScreen");
@@ -625,11 +307,7 @@
     return div;
   }
 
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
-  }
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
   function addTypingIndicator() {
     const div = document.createElement("div");
@@ -640,21 +318,14 @@
     scrollToBottom();
   }
 
-  function removeTypingIndicator() {
-    const el = document.getElementById("typingIndicator");
-    if (el) el.remove();
-  }
+  function removeTypingIndicator() { const el = document.getElementById("typingIndicator"); if (el) el.remove(); }
 
-  function updateBotMessage(div, html) {
-    div.querySelector(".message-bubble").innerHTML = html;
-    scrollToBottom();
-  }
+  function updateBotMessage(div, html) { div.querySelector(".message-bubble").innerHTML = html; scrollToBottom(); }
 
   function clearChat() {
-    const msgs = document.getElementById("chatMessages");
-    msgs.innerHTML = `<div class="welcome" id="welcomeScreen">
+    document.getElementById("chatMessages").innerHTML = `<div class="welcome" id="welcomeScreen">
       <h2>&#127968; Find Modular Home Builders</h2>
-      <p>Search for modular, manufactured, prefab, or tiny home builders by city or entire state.</p>
+      <p>Search for modular, manufactured, prefab, kit, tiny home, commercial modular, and multifamily modular companies.</p>
       <div class="example-queries">
         <button class="example-query" onclick="sendExample(this)">Find all modular and manufactured home companies in Florida</button>
         <button class="example-query" onclick="sendExample(this)">Every modular home builder in Texas</button>
@@ -667,15 +338,11 @@
 
   function showHelp() { document.getElementById("helpModal").classList.add("show"); }
   function closeHelp() { document.getElementById("helpModal").classList.remove("show"); }
-  document.getElementById("helpModal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("helpModal")) closeHelp();
-  });
+  document.getElementById("helpModal").addEventListener("click", (e) => { if (e.target === document.getElementById("helpModal")) closeHelp(); });
 
   function showFullTable() { document.getElementById("fullTableModal").classList.add("show"); renderFullTable(); }
   function closeFullTable() { document.getElementById("fullTableModal").classList.remove("show"); }
-  document.getElementById("fullTableModal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("fullTableModal")) closeFullTable();
-  });
+  document.getElementById("fullTableModal").addEventListener("click", (e) => { if (e.target === document.getElementById("fullTableModal")) closeFullTable(); });
 
   function renderFullTable() {
     if (!currentResults) return;
@@ -686,54 +353,25 @@
     const rows = results.slice(0, limit);
     let html = `<div class="results-table-wrap"><table class="results-table">
       <thead><tr>
-        <th onclick="sortTable(0)">#</th>
-        <th onclick="sortTable(1)">Company</th>
-        <th onclick="sortTable(2)">Email</th>
-        <th onclick="sortTable(3)">Phone</th>
-        <th onclick="sortTable(4)">Specialties</th>
+        <th>#</th>
+        <th>Company</th>
+        <th>Website</th>
       </tr></thead><tbody>`;
     rows.forEach((r, i) => {
-      const emailCell = r.email
-        ? `<span class="verified">&#10003;</span> ${escapeHtml(r.email)}`
-        : `<span class="not-found">Not found</span>`;
-      const phoneCell = r.phone
-        ? escapeHtml(r.phone)
-        : `<span class="not-found">Not found</span>`;
-      const specTags = (r.specialties || []).map(s => `<span class="specialty-tag">${escapeHtml(s)}</span>`).join(" ");
-      const nameLink = r.website ? `<a href="${escapeHtml(r.website)}" target="_blank" rel="noopener" style="color:var(--accent)">${escapeHtml(r.name)}</a>` : escapeHtml(r.name);
-      html += `<tr>
-        <td>${i + 1}</td>
-        <td>${nameLink}</td>
-        <td>${emailCell}</td>
-        <td>${phoneCell}</td>
-        <td>${specTags || '<span class="not-found">-</span>'}</td>
-      </tr>`;
+      const nameText = escapeHtml(r.name);
+      const urlText = escapeHtml(r.website);
+      const link = r.website ? `<a href="${urlText}" target="_blank" rel="noopener" style="color:var(--accent)">${urlText}</a>` : '-';
+      html += `<tr><td>${i + 1}</td><td>${nameText}</td><td>${link}</td></tr>`;
     });
     html += `</tbody></table></div>`;
     return html;
   }
 
-  function sortTable(col) {
-    if (!currentResults) return;
-    if (sortCol === col) sortDir *= -1;
-    else { sortCol = col; sortDir = 1; }
-    const keys = ["name", "name", "email", "phone", "specialties"];
-    currentResults.results.sort((a, b) => {
-      const av = (col === 4 ? (a[keys[col]]||[]).length : (a[keys[col]]||"")) || "";
-      const bv = (col === 4 ? (b[keys[col]]||[]).length : (b[keys[col]]||"")) || "";
-      if (av < bv) return -1 * sortDir;
-      if (av > bv) return 1 * sortDir;
-      return 0;
-    });
-  }
-
   function downloadCSV() {
     if (!currentResults) return;
-    const header = "Company Name,Website URL,General Email,Sales Email,Phone,Specialties,Source URL\n";
+    const header = "Company Name,Website URL\n";
     const rows = currentResults.results.map(r =>
-      [r.name, r.website, r.email || "", r.salesEmail || "", r.phone || "", (r.specialties || []).join("; "), r.sourceUrl || ""]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(",")
+      [r.name, r.website].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const loc = currentResults.statewide ? currentResults.state : `${currentResults.city}_${currentResults.state}`;
@@ -761,16 +399,6 @@
   function dateStr() {
     const d = new Date();
     return `${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}_${String(d.getDate()).padStart(2, "0")}`;
-  }
-
-  function filterBySpecialty(specialty) {
-    if (!currentResults) return;
-    const filtered = specialty === "all"
-      ? currentResults.results
-      : currentResults.results.filter(r => (r.specialties || []).includes(specialty));
-    const html = `<strong>Filtered: ${specialty === "all" ? "All Companies" : specialty}</strong> (${filtered.length} results)<br><br>` +
-      buildTable(filtered, filtered.length);
-    addMessage(html, "bot", true);
   }
 
   async function sendMessage() {
@@ -811,9 +439,7 @@
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           let data;
-          try {
-            data = JSON.parse(line.slice(6));
-          } catch { continue; }
+          try { data = JSON.parse(line.slice(6)); } catch { continue; }
 
           removeTypingIndicator();
 
@@ -849,26 +475,7 @@
               break;
             }
 
-            case "search_complete":
-              progressDiv = null;
-              discoveryDiv = null;
-              addMessage(data.message, "bot");
-              addTypingIndicator();
-              break;
-
-            case "scrape_progress": {
-              const pct = data.percent || 0;
-              const progressHtml = `${escapeHtml(data.message)}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><small>${pct}% complete &mdash; 3-phase scrape: website crawl &rarr; directory search &rarr; deep contact hunt</small>`;
-              if (!progressDiv) {
-                progressDiv = addMessage(progressHtml, "bot", true);
-              } else {
-                updateBotMessage(progressDiv, progressHtml);
-              }
-              break;
-            }
-
             case "search_error":
-              // Don't show individual search errors to keep UI clean
               break;
 
             case "error":
@@ -888,35 +495,19 @@
                 <div class="summary-stats">
                   <div class="stat"><span class="stat-label">Location</span><span class="stat-value">${locLabel}</span></div>
                   <div class="stat"><span class="stat-label">Companies Found</span><span class="stat-value">${data.totalCompanies}</span></div>
-                  <div class="stat"><span class="stat-label">With Email</span><span class="stat-value">${data.withEmail} (${data.emailPercent}%)</span></div>
-                  <div class="stat"><span class="stat-label">With Phone</span><span class="stat-value">${data.withPhone} (${data.phonePercent}%)</span></div>
                   <div class="stat"><span class="stat-label">Time Taken</span><span class="stat-value">${data.timeElapsed}</span></div>
                 </div>
               </div>`;
               addMessage(summaryHtml, "bot", true);
 
-              const previewCount = Math.min(15, data.results.length);
-              const tableHtml = `<strong>Top ${previewCount} of ${data.totalCompanies} Results:</strong><br><br>` + buildTable(data.results, previewCount);
+              const previewCount = Math.min(20, data.results.length);
+              const tableHtml = `<strong>${data.totalCompanies} Companies Found:</strong><br><br>` + buildTable(data.results, previewCount);
               addMessage(tableHtml, "bot", true);
 
-              const allSpecs = new Set();
-              data.results.forEach(r => (r.specialties || []).forEach(s => allSpecs.add(s)));
-              const filterOptions = Array.from(allSpecs).map(s =>
-                `<div class="filter-option" onclick="filterBySpecialty('${escapeHtml(s)}')">${escapeHtml(s)}</div>`
-              ).join("");
-
-              const actionsHtml = `<div>Would you like to:</div>
-                <div class="action-buttons">
-                  <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV (${data.totalCompanies} companies)</button>
+              const actionsHtml = `<div class="action-buttons">
+                  <button class="action-btn primary" onclick="downloadCSV()">&#128190; Download CSV (${data.totalCompanies} URLs)</button>
                   <button class="action-btn primary" onclick="downloadJSON()">&#128190; Download JSON</button>
-                  <button class="action-btn" onclick="showFullTable()">&#128200; View All ${data.totalCompanies} Results</button>
-                  ${allSpecs.size > 0 ? `<div class="filter-wrap">
-                    <button class="action-btn" onclick="this.nextElementSibling.classList.toggle('show')">&#128270; Filter by Specialty</button>
-                    <div class="filter-dropdown">
-                      <div class="filter-option" onclick="filterBySpecialty('all');this.parentElement.classList.remove('show')"><strong>All Companies</strong></div>
-                      ${filterOptions}
-                    </div>
-                  </div>` : ""}
+                  ${data.totalCompanies > previewCount ? `<button class="action-btn" onclick="showFullTable()">&#128200; View All ${data.totalCompanies} Results</button>` : ""}
                   <button class="action-btn" onclick="clearChat()">&#128260; Search Another Location</button>
                 </div>`;
               addMessage(actionsHtml, "bot", true);
@@ -930,7 +521,7 @@
       }
     } catch (err) {
       removeTypingIndicator();
-      addMessage(`Connection error: ${err.message}. Please check the server is running and try again.`, "bot");
+      addMessage(`Connection error: ${err.message}. Please check the server is running.`, "bot");
     }
 
     removeTypingIndicator();
@@ -941,7 +532,7 @@
 
   fetch("/api/health").then(r => r.json()).then(data => {
     if (!data.hasApiKey) {
-      addMessage("&#9888; No ANTHROPIC_API_KEY detected. Set the environment variable and restart the server to begin searching.", "bot", true);
+      addMessage("&#9888; No ANTHROPIC_API_KEY detected. Set the environment variable and restart the server.", "bot", true);
     }
   }).catch(() => {});
 </script>
